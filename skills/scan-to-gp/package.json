@@ -1,0 +1,10 @@
+{
+  "name": "scan-to-gp-verify",
+  "private": true,
+  "description": "Loads a .gp5 with alphaTab (a real Guitar Pro engine) to prove it parses.",
+  "type": "module",
+  "license": "MIT",
+  "dependencies": {
+    "@coderline/alphatab": "1.8.3"
+  }
+}

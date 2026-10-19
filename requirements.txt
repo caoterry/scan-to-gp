@@ -1,0 +1,7 @@
+# Runtime deps for skills/scan-to-gp/scripts (each script also declares them inline, PEP 723,
+# so `uv run --script` needs nothing else). Fallback: pip install -r requirements.txt
+numpy>=1.24
+scipy>=1.10
+pillow>=10.0
+pymupdf>=1.23
+pyguitarpro>=0.9

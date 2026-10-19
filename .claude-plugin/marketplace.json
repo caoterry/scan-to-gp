@@ -1,0 +1,14 @@
+{
+  "name": "scan-to-gp",
+  "description": "Marketplace for the scan-to-gp Claude Code skill.",
+  "owner": {
+    "name": "Terry Cao"
+  },
+  "plugins": [
+    {
+      "name": "scan-to-gp",
+      "source": ".",
+      "description": "Turn scanned guitar pages (standard notation + TAB) into a verified Guitar Pro .gp5."
+    }
+  ]
+}

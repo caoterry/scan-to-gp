@@ -1,0 +1,21 @@
+{
+  "name": "scan-to-gp",
+  "version": "0.1.0",
+  "description": "Turn scanned guitar pages (standard notation + TAB) into a Guitar Pro .gp5 that two independent reads verified note by note.",
+  "author": {
+    "name": "Terry Cao"
+  },
+  "homepage": "https://github.com/caoterry/scan-to-gp",
+  "repository": "https://github.com/caoterry/scan-to-gp",
+  "license": "MIT",
+  "keywords": [
+    "guitar",
+    "tablature",
+    "tab",
+    "guitar-pro",
+    "gp5",
+    "omr",
+    "transcription",
+    "sheet-music"
+  ]
+}

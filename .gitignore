@@ -1,0 +1,20 @@
+# work dirs and outputs -- they contain page images of (usually copyrighted) music
+*.scan2gp/
+work/
+out/
+*.gp5
+!tests/fixtures/**/*.gp5
+*.pdf
+!tests/fixtures/**/*.pdf
+
+# never commit scans or private regression material
+private/
+scans/
+
+# tooling
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.DS_Store

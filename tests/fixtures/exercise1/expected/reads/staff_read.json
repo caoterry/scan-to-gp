@@ -1,0 +1,62 @@
+{
+  "reader": "staff",
+  "note": "Ground truth for exercise1_scan.jpg, written by hand from exercise1.ly (written pitches, printed accidentals only).",
+  "systems": {
+    "p1_s1": {
+      "clef": "treble", "key_sig": "2 sharps",
+      "bars": [
+        {"bar": 1, "time_sig": "C", "partial": true, "events": [
+          {"letter": "B", "octave": 3, "acc": "none", "dur": "8"},
+          {"letter": "D", "octave": 4, "acc": "none", "dur": "8"}]},
+        {"bar": 2, "events": [
+          {"letter": "E", "octave": 4, "acc": "none", "dur": "8", "tuplet": 3},
+          {"letter": "F", "octave": 4, "acc": "none", "dur": "8", "tuplet": 3},
+          {"letter": "E", "octave": 4, "acc": "none", "dur": "8", "tuplet": 3},
+          {"letter": "D", "octave": 4, "acc": "none", "dur": "8", "tuplet": 3},
+          {"letter": "E", "octave": 4, "acc": "none", "dur": "8", "tuplet": 3},
+          {"letter": "F", "octave": 4, "acc": "none", "dur": "8", "tuplet": 3},
+          {"letter": "A", "octave": 4, "acc": "none", "dur": "8", "tuplet": 3},
+          {"letter": "F", "octave": 4, "acc": "none", "dur": "8", "tuplet": 3},
+          {"letter": "E", "octave": 4, "acc": "none", "dur": "8", "tuplet": 3},
+          {"letter": "D", "octave": 4, "acc": "none", "dur": "4"}]},
+        {"bar": 3, "events": [
+          {"letter": "B", "octave": 4, "acc": "none", "dur": "4", "dots": 1},
+          {"letter": "A", "octave": 4, "acc": "none", "dur": "8"},
+          {"rest": true, "dur": "4"},
+          {"chord": [{"letter": "B", "octave": 3, "acc": "none"}, {"letter": "F", "octave": 4, "acc": "none"}], "dur": "4"}]},
+        {"bar": 4, "events": [
+          {"letter": "E", "octave": 4, "acc": "none", "dur": "8"},
+          {"letter": "F", "octave": 4, "acc": "natural", "dur": "8"},
+          {"letter": "F", "octave": 4, "acc": "none", "dur": "8"},
+          {"letter": "F", "octave": 4, "acc": "sharp", "dur": "8"},
+          {"letter": "A", "octave": 4, "acc": "none", "dur": "8"},
+          {"letter": "B", "octave": 4, "acc": "none", "dur": "8"},
+          {"letter": "A", "octave": 4, "acc": "none", "dur": "8"},
+          {"letter": "F", "octave": 4, "acc": "none", "dur": "8"}]}
+      ]
+    },
+    "p1_s2": {
+      "clef": "treble", "key_sig": "2 sharps",
+      "bars": [
+        {"bar": 1, "events": [
+          {"letter": "D", "octave": 5, "acc": "none", "dur": "4"},
+          {"letter": "E", "octave": 5, "acc": "none", "dur": "4"},
+          {"letter": "F", "octave": 5, "acc": "none", "dur": "2"}]},
+        {"bar": 2, "events": [
+          {"letter": "F", "octave": 5, "acc": "none", "dur": "4", "tie": true},
+          {"letter": "E", "octave": 5, "acc": "none", "dur": "8"},
+          {"letter": "D", "octave": 5, "acc": "none", "dur": "8"},
+          {"letter": "B", "octave": 4, "acc": "none", "dur": "4"},
+          {"rest": true, "dur": "4"}]},
+        {"bar": 3, "events": [
+          {"letter": "A", "octave": 4, "acc": "none", "dur": "16"},
+          {"letter": "B", "octave": 4, "acc": "none", "dur": "16"},
+          {"letter": "A", "octave": 4, "acc": "none", "dur": "16"},
+          {"letter": "F", "octave": 4, "acc": "none", "dur": "16"},
+          {"letter": "E", "octave": 4, "acc": "none", "dur": "8", "dots": 1},
+          {"letter": "D", "octave": 4, "acc": "none", "dur": "16"},
+          {"letter": "B", "octave": 3, "acc": "none", "dur": "2"}]}
+      ]
+    }
+  }
+}
