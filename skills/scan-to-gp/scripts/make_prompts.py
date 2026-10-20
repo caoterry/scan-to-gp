@@ -65,21 +65,53 @@ def main(argv=None) -> int:
             "...]` -- one value per entry in `notes`, same spellings as standard durations (\"1\", \"2\", \"4\", "
             "\"8\", \"16\") -- and `\"time_sig\"` where one is printed. If no rhythm is printed, leave `durs` "
             "out; never invent rhythm.\n")
+    pages = {p["page"]: p for p in man.get("pages", [])}
+    first_of_page, last_of_page = {}, {}
+    for s in man["systems"]:
+        first_of_page.setdefault(s["page"], s["id"])
+        last_of_page[s["page"]] = s["id"]
     for k, batch in enumerate(batches, start=1):
         for role in ("tab", "staff"):
             todo = [s for s in batch if role == "tab" or s["kind"] == "staff+tab"]
             if not todo:
                 continue
-            ids = ", ".join(f"{s['id']} ({s['n_bars_detected']} bars detected)" for s in todo)
+            ids = ", ".join(f"{s['id']} ({s['n_bars_detected']} bars detected)" + _part_note(s) for s in todo)
             tpl = (SKILL_DIR / "prompts" / f"{role}_reader.md").read_text()
             out = work / "reads" / f"{role}_{k}{suffix}.json"
             text = (tpl.replace("{{WORKDIR}}", str(work)).replace("{{SYSTEMS}}", ids)
                     .replace("{{OUT}}", str(out)).replace("{{SKILL_DIR}}", str(SKILL_DIR))
-                    .replace("{{UNVERIFIED_SECTION}}", unverified_text if role == "tab" else ""))
+                    .replace("{{UNVERIFIED_SECTION}}", unverified_text if role == "tab" else "")
+                    .replace("{{LEGEND_CROPS}}", _legend_crops(todo, pages, first_of_page, last_of_page) if role == "staff" else ""))
             pf = work / "prompts" / f"{role}_reader_{k}{suffix}.md"
             pf.write_text(text)
             print(f"{role:5s} batch {k}: {pf}  ->  {out}")
     return 0
+
+
+def _part_note(s: dict) -> str:
+    n = s.get("parts_in_group", 1)
+    return f" [stacked part {s.get('part', 1)} of {n} in {s.get('group')}]" if n and n > 1 else ""
+
+
+def _legend_crops(todo: list, pages: dict, first_of_page: dict, last_of_page: dict) -> str:
+    """Header / footer crops (title, tuning / capo legend, tempo, footnotes) of the pages whose first /
+    last system is in this batch, plus the notation-only crops of dropped staves (vocal lines) printed
+    over a system."""
+    lines = []
+    for s in todo:
+        hdr = pages.get(s["page"], {}).get("header")
+        if hdr and first_of_page.get(s["page"]) == s["id"]:
+            lines.append(f"- `{hdr}` -- everything printed above the first system of page {s['page']}")
+        ftr = pages.get(s["page"], {}).get("footer")
+        if ftr and last_of_page.get(s["page"]) == s["id"]:
+            lines.append(f"- `{ftr}` -- everything printed below the last system of page {s['page']} "
+                         "(footnotes about tuning, capo, tempo or feel count as legends)")
+        for c in s.get("context_crops", []):
+            lines.append(f"- `{c}` -- a notation staff printed over {s['id']} that is NOT transcribed (vocal / "
+                         "other instrument); look at it ONLY for tempo marks, section names and legends")
+    if not lines:
+        return "(none for this batch -- record legends only if you see them in your staff crops)"
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":

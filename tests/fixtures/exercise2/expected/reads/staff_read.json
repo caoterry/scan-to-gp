@@ -1,0 +1,527 @@
+{
+ "reader": "staff",
+ "legends": [
+  {
+   "page": 1,
+   "kind": "tuning",
+   "text": "All strings down 1/2 step: (6)=Eb (5)=Ab (4)=Db (3)=Gb (2)=Bb (1)=Eb"
+  },
+  {
+   "page": 1,
+   "kind": "tempo",
+   "text": "Moderately (quarter = 120)",
+   "bpm": 120
+  },
+  {
+   "page": 1,
+   "kind": "tempo",
+   "text": "Faster (quarter = 140)",
+   "bpm": 140,
+   "system": "p1_s3"
+  }
+ ],
+ "systems": {
+  "p1_s1": {
+   "clef": "treble",
+   "key_sig": "1 sharp",
+   "part_label": "Gtr. 1",
+   "bars": [
+    {
+     "bar": 1,
+     "time_sig": "3/4",
+     "events": [
+      {
+       "letter": "D",
+       "octave": 5,
+       "acc": "none",
+       "dur": "2",
+       "dots": 1
+      }
+     ]
+    },
+    {
+     "bar": 2,
+     "events": [
+      {
+       "letter": "B",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "C",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "D",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      }
+     ]
+    },
+    {
+     "bar": 3,
+     "events": [
+      {
+       "letter": "E",
+       "octave": 5,
+       "acc": "none",
+       "dur": "2"
+      },
+      {
+       "letter": "D",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      }
+     ]
+    },
+    {
+     "bar": 4,
+     "events": [
+      {
+       "letter": "B",
+       "octave": 4,
+       "acc": "none",
+       "dur": "2",
+       "dots": 1
+      }
+     ]
+    }
+   ],
+   "omitted": []
+  },
+  "p1_s2": {
+   "clef": "treble",
+   "key_sig": "1 sharp",
+   "part_label": "Gtr. 2",
+   "bars": [
+    {
+     "bar": 1,
+     "time_sig": "3/4",
+     "events": [
+      {
+       "letter": "G",
+       "octave": 3,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "D",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "G",
+         "octave": 4,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "D",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "G",
+         "octave": 4,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      }
+     ]
+    },
+    {
+     "bar": 2,
+     "events": [
+      {
+       "letter": "B",
+       "octave": 3,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "D",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "G",
+         "octave": 4,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "D",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "G",
+         "octave": 4,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      }
+     ]
+    },
+    {
+     "bar": 3,
+     "events": [
+      {
+       "letter": "C",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "E",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "G",
+         "octave": 4,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "E",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "G",
+         "octave": 4,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      }
+     ]
+    },
+    {
+     "bar": 4,
+     "events": [
+      {
+       "letter": "G",
+       "octave": 3,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "D",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "G",
+         "octave": 4,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "D",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "G",
+         "octave": 4,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      }
+     ]
+    }
+   ],
+   "omitted": []
+  },
+  "p1_s3": {
+   "clef": "treble",
+   "key_sig": "1 sharp",
+   "section": "Chorus",
+   "bars": [
+    {
+     "bar": 1,
+     "events": [
+      {
+       "letter": "C",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "E",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "G",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      }
+     ]
+    },
+    {
+     "bar": 2,
+     "events": [
+      {
+       "letter": "F",
+       "octave": 5,
+       "acc": "none",
+       "dur": "2"
+      },
+      {
+       "letter": "E",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      }
+     ]
+    },
+    {
+     "bar": 3,
+     "events": [
+      {
+       "letter": "D",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "C",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "A",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      }
+     ]
+    },
+    {
+     "bar": 4,
+     "end_barline": "final",
+     "events": [
+      {
+       "letter": "G",
+       "octave": 4,
+       "acc": "none",
+       "dur": "2",
+       "dots": 1
+      }
+     ]
+    }
+   ],
+   "omitted": []
+  },
+  "p1_s4": {
+   "clef": "treble",
+   "key_sig": "1 sharp",
+   "bars": [
+    {
+     "bar": 1,
+     "events": [
+      {
+       "letter": "A",
+       "octave": 3,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "E",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "A",
+         "octave": 4,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "E",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "A",
+         "octave": 4,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      }
+     ]
+    },
+    {
+     "bar": 2,
+     "events": [
+      {
+       "letter": "D",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "A",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "C",
+         "octave": 5,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "A",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "C",
+         "octave": 5,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      }
+     ]
+    },
+    {
+     "bar": 3,
+     "events": [
+      {
+       "letter": "D",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "A",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "C",
+         "octave": 5,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "A",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "C",
+         "octave": 5,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      }
+     ]
+    },
+    {
+     "bar": 4,
+     "end_barline": "final",
+     "events": [
+      {
+       "letter": "G",
+       "octave": 3,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "D",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "G",
+         "octave": 4,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      },
+      {
+       "chord": [
+        {
+         "letter": "D",
+         "octave": 4,
+         "acc": "none"
+        },
+        {
+         "letter": "G",
+         "octave": 4,
+         "acc": "none"
+        }
+       ],
+       "dur": "4"
+      }
+     ]
+    }
+   ],
+   "omitted": []
+  }
+ }
+}

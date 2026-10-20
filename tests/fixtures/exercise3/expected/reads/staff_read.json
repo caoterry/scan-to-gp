@@ -1,0 +1,335 @@
+{
+ "reader": "staff",
+ "legends": [
+  {
+   "page": 1,
+   "kind": "capo",
+   "text": "Capo on fret 2"
+  },
+  {
+   "page": 1,
+   "kind": "tempo",
+   "text": "Easy Shuffle (quarter = 100)",
+   "bpm": 100
+  }
+ ],
+ "systems": {
+  "p1_s1": {
+   "clef": "treble",
+   "key_sig": "1 sharp",
+   "bars": [
+    {
+     "bar": 1,
+     "time_sig": "4/4",
+     "events": [
+      {
+       "letter": "B",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "D",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "B",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "A",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "E",
+       "octave": 3,
+       "acc": "none",
+       "dur": "2",
+       "voice": 2
+      },
+      {
+       "letter": "A",
+       "octave": 3,
+       "acc": "none",
+       "dur": "2",
+       "voice": 2
+      }
+     ]
+    },
+    {
+     "bar": 2,
+     "events": [
+      {
+       "letter": "G",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "A",
+       "octave": 4,
+       "acc": "none",
+       "dur": "8"
+      },
+      {
+       "letter": "B",
+       "octave": 4,
+       "acc": "none",
+       "dur": "8"
+      },
+      {
+       "letter": "D",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "B",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "E",
+       "octave": 3,
+       "acc": "none",
+       "dur": "1",
+       "voice": 2
+      }
+     ],
+     "end_barline": "dashed"
+    },
+    {
+     "bar": 3,
+     "events": [
+      {
+       "letter": "E",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "D",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "B",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "G",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "E",
+       "octave": 3,
+       "acc": "none",
+       "dur": "2",
+       "voice": 2
+      },
+      {
+       "letter": "B",
+       "octave": 3,
+       "acc": "none",
+       "dur": "2",
+       "voice": 2
+      }
+     ]
+    },
+    {
+     "bar": 4,
+     "events": [
+      {
+       "letter": "G",
+       "octave": 4,
+       "acc": "none",
+       "dur": "2"
+      },
+      {
+       "rest": true,
+       "dur": "2"
+      },
+      {
+       "letter": "E",
+       "octave": 3,
+       "acc": "none",
+       "dur": "1",
+       "voice": 2
+      }
+     ]
+    }
+   ],
+   "omitted": []
+  },
+  "p1_s2": {
+   "clef": "treble",
+   "key_sig": "1 sharp",
+   "bars": [
+    {
+     "bar": 1,
+     "events": [
+      {
+       "letter": "E",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "D",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "B",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "A",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "E",
+       "octave": 3,
+       "acc": "none",
+       "dur": "2",
+       "voice": 2
+      },
+      {
+       "letter": "A",
+       "octave": 3,
+       "acc": "none",
+       "dur": "2",
+       "voice": 2
+      }
+     ]
+    },
+    {
+     "bar": 2,
+     "events": [
+      {
+       "letter": "G",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "A",
+       "octave": 4,
+       "acc": "none",
+       "dur": "8"
+      },
+      {
+       "letter": "B",
+       "octave": 4,
+       "acc": "none",
+       "dur": "8"
+      },
+      {
+       "letter": "D",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "B",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "E",
+       "octave": 3,
+       "acc": "none",
+       "dur": "1",
+       "voice": 2
+      }
+     ]
+    },
+    {
+     "bar": 3,
+     "events": [
+      {
+       "letter": "E",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "D",
+       "octave": 5,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "B",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "G",
+       "octave": 4,
+       "acc": "none",
+       "dur": "4"
+      },
+      {
+       "letter": "E",
+       "octave": 3,
+       "acc": "none",
+       "dur": "2",
+       "voice": 2
+      },
+      {
+       "letter": "B",
+       "octave": 3,
+       "acc": "none",
+       "dur": "2",
+       "voice": 2
+      }
+     ]
+    },
+    {
+     "bar": 4,
+     "events": [
+      {
+       "letter": "G",
+       "octave": 4,
+       "acc": "none",
+       "dur": "2"
+      },
+      {
+       "rest": true,
+       "dur": "2"
+      },
+      {
+       "letter": "E",
+       "octave": 3,
+       "acc": "none",
+       "dur": "1",
+       "voice": 2
+      }
+     ],
+     "end_barline": "final"
+    }
+   ],
+   "omitted": []
+  }
+ }
+}

@@ -26,3 +26,24 @@ def test_prompts_rereads_and_unverified(tmp_path, capsys):
     assert make_prompts.main([str(work), "--unverified"]) == 0
     assert "UNVERIFIED mode" in (work / "prompts" / "tab_reader_1.md").read_text()
     assert "UNVERIFIED mode" not in (work / "prompts" / "staff_reader_1.md").read_text()
+
+
+def test_prompts_name_stacked_parts_and_legend_crops(tmp_path):
+    work = tmp_path / "work"
+    assert prepare.main([str(FIXTURES / "exercise2" / "exercise2_scan.jpg"), str(work)]) == 0
+    assert make_prompts.main([str(work)]) == 0
+    staff = (work / "prompts" / "staff_reader_1.md").read_text()
+    tab = (work / "prompts" / "tab_reader_1.md").read_text()
+    for text in (staff, tab):
+        assert "{{" not in text and "p1_s2 (4 bars detected) [stacked part 2 of 2 in p1_g1]" in text
+    assert "crops/p1_header.png" in staff and "crops/p1_header.png" not in tab
+    assert '"voice": 2' in staff and '"legends"' in staff
+
+
+def test_staff_prompt_lists_dropped_staves_as_context(tmp_path):
+    work = tmp_path / "work"
+    assert prepare.main([str(FIXTURES / "exercise3" / "exercise3_scan.jpg"), str(work)]) == 0
+    assert make_prompts.main([str(work)]) == 0
+    staff = (work / "prompts" / "staff_reader_1.md").read_text()
+    assert "crops/p1_x1_full.png" in staff and "crops/p1_x3_full.png" in staff
+    assert "crops/p1_x2_full.png" not in staff  # the skipped vocal-only system is not context for anything

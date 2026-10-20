@@ -1,6 +1,6 @@
 {
   "name": "scan-to-gp",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "Turn scanned guitar pages (standard notation + TAB) into a Guitar Pro .gp5 that two independent reads verified note by note.",
   "author": {
     "name": "Terry Cao"

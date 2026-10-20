@@ -5,8 +5,10 @@
 # ///
 """Regenerate a fixture: render <name>.ly with LilyPond, then degrade it to look scanned.
 
-usage: uv run tests/fixtures/make_fixture.py tests/fixtures/exercise1/exercise1.ly
-Writes next to the .ly: <name>_clean.png, <name>.midi, <name>_scan.jpg (deterministic, seeded).
+usage: uv run tests/fixtures/make_fixture.py tests/fixtures/exercise1/exercise1.ly [--inverted]
+Writes next to the .ly: <name>_clean.png, <name>.midi, <name>_scan.jpg (deterministic, seeded),
+and with --inverted also <name>_1bit_inverted.png: the scan thresholded to 1 bit and stored
+white-on-black, the way the raw samples of a 1-bit /ImageMask (stencil) PDF scan come out.
 """
 import os
 import sys
@@ -43,8 +45,14 @@ def degrade(clean: Image.Image, seed: int = 7, angle: float = 1.15) -> Image.Ima
     return Image.fromarray(a)
 
 
+def one_bit_inverted(scan: Image.Image) -> Image.Image:
+    a = np.asarray(scan.convert("L"))
+    return Image.fromarray(np.where(a < 128, 255, 0).astype(np.uint8)).convert("1")
+
+
 def main() -> int:
     ly = Path(sys.argv[1]).resolve()
+    inverted = "--inverted" in sys.argv[2:]
     if not shutil.which("lilypond"):
         print("lilypond not found")
         return 2
@@ -61,7 +69,10 @@ def main() -> int:
     bottom = min(arr.shape[0], int(rows[-1]) + 150)
     clean = clean.crop((0, 0, clean.width, bottom))
     clean.save(ly.with_name(ly.stem + "_clean.png"), optimize=True)
-    degrade(clean).save(ly.with_name(ly.stem + "_scan.jpg"), quality=45)
+    scan = degrade(clean)
+    scan.save(ly.with_name(ly.stem + "_scan.jpg"), quality=45)
+    if inverted:
+        one_bit_inverted(scan).save(ly.with_name(ly.stem + "_1bit_inverted.png"), optimize=True)
     print("wrote", ly.with_name(ly.stem + "_clean.png"), ly.with_name(ly.stem + "_scan.jpg"), ly.with_suffix(".midi"))
     return 0
 

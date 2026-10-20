@@ -429,7 +429,7 @@ def test_capo_and_notation_transpose(tmp_path):
     code, rep, out = run(make_work(tmp_path, tab, staff), tmp_path, "--capo", "2")
     assert code == 0, rep["disagreements"]
     assert gp.parse(str(out)).tracks[0].offset == 2
-    # "tune down 1/2 step" book: notation printed as if standard; real tuning a half step lower
+    # half-step-down book: notation printed as if standard; real tuning a half step lower
     tab = [{"notes": [[1, 0], [1, 0], [1, 0], [1, 0]]}]
     staff = [{"time_sig": "4/4", "events": [q("E", 5)] * 4}]
     eb = "Eb2,Ab2,Db3,Gb3,Bb3,Eb4"

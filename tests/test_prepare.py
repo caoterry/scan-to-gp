@@ -193,3 +193,73 @@ def test_pdf_with_vertically_flipped_image(tmp_path):
     assert man["pages"][0]["extraction"].startswith("embedded-image") and r.width > 0
     assert code == 0
     assert_exercise1_layout(man)
+
+
+# ---- v0.2: page selector, inverted 1-bit scans --------------------------------------------------
+
+
+def _pdf_from_images(path: Path, images: list[Path]) -> Path:
+    doc = pymupdf.open()
+    for im in images:
+        w, h = Image.open(im).size
+        page = doc.new_page(width=w * 72 / 300, height=h * 72 / 300)
+        page.insert_image(page.rect, filename=str(im))
+    doc.save(path)
+    return path
+
+
+def test_page_selector(tmp_path):
+    pdf = _pdf_from_images(tmp_path / "four.pdf", [CLEAN, SCAN, CLEAN, SCAN])
+    code, man = prep(tmp_path / "a", pdf, flags=["--pages", "1,3-4"])
+    assert code == 0, man.get("warnings")
+    assert [p["page"] for p in man["pages"]] == [1, 3, 4]
+    assert [p["source_page"] for p in man["pages"]] == [1, 3, 4]
+    assert [s["id"] for s in man["systems"]][:3] == ["p1_s1", "p1_s2", "p3_s1"]
+    assert man["page_selection"] == [1, 3, 4]
+    # page numbers count across inputs in reading order
+    code, man = prep(tmp_path / "b", CLEAN, SCAN, flags=["--pages", "2"])
+    assert code == 0 and [p["source"] for p in man["pages"]] == [SCAN.name]
+    assert [s["id"] for s in man["systems"]] == ["p2_s1", "p2_s2"]
+    assert prepare.main([str(pdf), str(tmp_path / "c"), "--pages", "5"]) == 2
+
+
+def _one_bit_imagemask_pdf(tmp_path: Path, src: Path) -> Path:
+    """A 1-bit /ImageMask page (the PDF stencil form many book scans use): the page renders
+    black-on-white, but the raw image samples are white-on-black."""
+    g = np.asarray(Image.open(src).convert("L"))
+    ink = g < 128
+    h, w = ink.shape
+    bits = np.packbits(~ink, axis=1)  # ImageMask, Decode [0 1]: sample 0 = paint
+    png = tmp_path / "mask_src.png"
+    Image.fromarray(np.where(ink, 0, 255).astype(np.uint8)).save(png)
+    doc = pymupdf.open()
+    page = doc.new_page(width=w * 72 / 300, height=h * 72 / 300)
+    xref = page.insert_image(page.rect, filename=str(png))
+    doc.update_object(xref, f"<< /Type /XObject /Subtype /Image /Width {w} /Height {h} /ImageMask true "
+                            f"/BitsPerComponent 1 /Length {bits.size} >>")
+    doc.update_stream(xref, bits.tobytes(), new=True, compress=True)
+    pdf = tmp_path / "mask.pdf"
+    doc.save(pdf)
+    return pdf
+
+
+def test_one_bit_imagemask_pdf_is_not_inverted(tmp_path):
+    pdf = _one_bit_imagemask_pdf(tmp_path, CLEAN)
+    code, man = prep(tmp_path, pdf)
+    assert code == 0, man["warnings"]
+    assert_exercise1_layout(man)
+    assert not any("--unverified" in w for w in man["warnings"])
+
+
+@pytest.mark.parametrize("bits", [8, 1])
+def test_white_on_black_image_is_inverted_first(tmp_path, bits):
+    """What extracting the raw samples of a 1-bit stencil scan gives you: white ink on black."""
+    img = Image.open(SCAN).convert("L")
+    p = tmp_path / "neg.png"
+    neg = Image.fromarray(255 - np.asarray(img))
+    (neg.point(lambda v: 255 if v > 128 else 0).convert("1") if bits == 1 else neg).save(p)
+    code, man = prep(tmp_path, p)
+    assert code == 0
+    assert_exercise1_layout(man)
+    assert "inverted" in man["pages"][0]["extraction"]
+    assert any("white-on-black" in w for w in man["warnings"])
