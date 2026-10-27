@@ -6,9 +6,17 @@
 //
 // --plan: compare alphaTab's own parse, beat by beat (rest, duration, dots, tuplet, string, fret,
 // tie, sounding pitch), every track and both voices, bar count per track, untranscribed bars (empty
-// beats only), markers, tempo and triplet feel, against the plan reconcile_build.py wrote --
-// an independent check of the writer, since the read-back inside reconcile_build.py uses the same
-// library that wrote the file. --expect-bars counts bars per track, --expect-notes all tracks.
+// beats only), title and track names, markers, tempo, the tempo text over bar 1 (the page's words or
+// nothing), triplet feel, and that no note carries a dynamic, against the plan reconcile_build.py
+// wrote -- an independent check of the writer, since the read-back inside reconcile_build.py uses the
+// same library that wrote the file. --expect-bars counts bars per track, --expect-notes all tracks.
+//
+// Dynamics: a GP5 note without a velocity has no dynamic, and alphaTab 1.8.3 parses it as its default
+// (f). alphaTab still DRAWS each track's first dynamic -- the written one, or that default -- so a player
+// built on it prints "f" (at least at each track's first note) on a GP3-5 file that writes no
+// velocity; writing a velocity would not avoid a mark (every GP5 dynamic value draws its own). The check
+// here is only that the file itself states none (an explicitly written f would look the same here;
+// pyguitarpro writes no velocity byte for its default, which reconcile_build.py's read-back checks).
 //
 // alphaTab is resolved from this skill's own node_modules (pinned in ../package.json).
 // Install once with:  npm ci --prefix <skill dir>
@@ -73,6 +81,7 @@ const summary = {
   version: at.meta ? at.meta.version : undefined,
   title: score.title,
   tempo: score.tempo,
+  tempoName: score.tempoLabel,
   masterBars: score.masterBars.length,
   tracks: score.tracks.length,
   markers: score.masterBars.map((m, i) => (m.section ? `${i + 1}:${m.section.text}` : null)).filter(Boolean),
@@ -104,6 +113,16 @@ if (planPath) {
   const tracks = [{ name: plan.name || "track 1", strings: plan.strings, bars: plan.bars }, ...(plan.more_tracks || [])];
   const diffs = [];
   if (tracks.length !== score.tracks.length) diffs.push(`plan has ${tracks.length} tracks, alphaTab ${score.tracks.length}`);
+  // text, exactly as written: GP5 text has no encoding (alphaTab reads UTF-8, Guitar Pro cp1252), so the
+  // writer keeps it ASCII -- anything else comes out different here
+  if (plan.title !== undefined && score.title !== plan.title)
+    diffs.push(`title ${JSON.stringify(score.title)} != ${JSON.stringify(plan.title)}`);
+  tracks.forEach((pt, ti) => {
+    const tr = score.tracks[ti];
+    const want = ti ? pt.name : plan.name;
+    if (tr && typeof want === "string" && tr.name !== want)
+      diffs.push(`track ${ti + 1} name ${JSON.stringify(tr.name)} != ${JSON.stringify(want)}`);
+  });
   tracks.forEach((pt, ti) => {
     const tr = score.tracks[ti];
     if (!tr) return;
@@ -194,6 +213,25 @@ if (planPath) {
       const got = [...new Set(ta)];
       if (JSON.stringify(got) !== JSON.stringify(want)) diffs.push(`bar ${i + 1}: tempo automations ${got} != ${want}`);
     });
+  }
+  // (plan.tempo_hidden -- GP5.1 hideTempo on the 90 bpm placeholder -- cannot be checked here: alphaTab
+  // 1.8.3 reads that byte and drops it, and draws the tempo anyway; reconcile_build.py's read-back checks it)
+  if (plan.tempo_name !== undefined) {
+    // the tempo text printed over bar 1: the page's own words, or nothing (never a library default)
+    const texts = [...new Set((score.masterBars.length ? score.masterBars[0].tempoAutomations : []).map((a) => a.text || ""))];
+    if (score.tempoLabel !== plan.tempo_name || texts.some((t) => t !== plan.tempo_name))
+      diffs.push(`tempo name ${JSON.stringify(texts)} != ${JSON.stringify(plan.tempo_name)}`);
+  }
+  if (plan.dynamics === null) {
+    // no dynamic written: every note is at the GP3-5 default (alphaTab's F) -- see the header comment
+    const F = at.model.DynamicValue.F;
+    const loud = [];
+    score.tracks.forEach((tr, ti) =>
+      tr.staves[0].bars.forEach((bar, i) =>
+        bar.voices.forEach((v) => v.beats.forEach((b) => b.notes.forEach((n) => {
+          if (n.dynamics !== F) loud.push(`${score.tracks.length > 1 ? `track ${ti + 1} ` : ""}bar ${i + 1}`);
+        })))));
+    if (loud.length) diffs.push(`${loud.length} note(s) carry a dynamic (first: ${loud[0]}), the plan writes none`);
   }
   if (plan.markers) {
     // section markers and the "not transcribed" notes on untranscribed bars, exactly

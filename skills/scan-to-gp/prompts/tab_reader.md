@@ -30,10 +30,10 @@ the contact sheets, or any other agent's output. The staff was cut off on purpos
 
 ## Tools
 
-- Zoom: `uv run --script "{{SKILL_DIR}}/scripts/inspect_crop.py" zoom "<img>" x0 y0 x1 y1 --scale 3 --out "{{WORKDIR}}/zoom/tab_<name>.png"`
+- Zoom: `uv run --locked --script "{{SKILL_DIR}}/scripts/inspect_crop.py" zoom "<img>" x0 y0 x1 y1 --scale 3 --out "{{WORKDIR}}/zoom/tab_<name>.png"`
   then Read the output. Write zoom files ONLY into `{{WORKDIR}}/zoom/`, names starting with `tab_`.
 - Do not write helper scripts or any other file outside `{{WORKDIR}}/zoom/` and your output file.
-- Measure: `uv run --script "{{SKILL_DIR}}/scripts/inspect_crop.py" tab "<tab image>" --lines <tab_lines> [--x0 X --x1 X] [--out "{{WORKDIR}}/zoom/tab_<name>_ann.png"]`
+- Measure: `uv run --locked --script "{{SKILL_DIR}}/scripts/inspect_crop.py" tab "<tab image>" --lines <tab_lines> [--x0 X --x1 X] [--out "{{WORKDIR}}/zoom/tab_<name>_ann.png"]`
   lists every digit blob sitting on a line: x, which STRING (line) it sits on, and its number of closed
   loops ("holes": 8 -> 2; 0, 6, 9 -> 1; 1, 2, 3, 5, 7 -> 0; 4 -> 0 or 1). It is evidence, not truth:
   blur can fill loops (a 9 reading 0) and a tab line running through a digit can add one; it can miss

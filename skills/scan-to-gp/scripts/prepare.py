@@ -1,18 +1,23 @@
-#!/usr/bin/env -S uv run --script
+#!/usr/bin/env -S uv run --locked --script
 # /// script
-# requires-python = ">=3.10"
-# dependencies = ["numpy>=1.24", "scipy>=1.10", "pillow>=10.0", "pymupdf>=1.23"]
+# requires-python = ">=3.12"
+# dependencies = ["numpy==2.5.4", "scipy==1.18.1", "pillow==13.0.0", "pymupdf==1.28.2"]
 # ///
 """prepare.py -- scanned pages -> deskewed pages -> staff+tab systems -> reader crops.
 
-usage: uv run prepare.py <input.pdf|png|jpg ...> <workdir> [--pages 1,3-4] [--unverified] [--dpi N]
+usage: uv run --locked --script prepare.py <input.pdf|png|jpg ...> <workdir> [--pages 1,3-4] [--unverified] [--dpi N]
 
 Writes into <workdir>:
   pages/pN.png                 deskewed page (grayscale)
   crops/pN_header.png          everything above the page's first system (title, tuning / capo
                                legend, tempo) -- read by the staff reader, never cross-checked
   crops/pN_footer.png          everything below the last system (footnotes, copyright)
-  crops/<sys>_full.png         whole system (staff + tab)
+  crops/<sys>_full.png         whole system (staff + tab). A part label / instrument name printed in
+                               the margin left of the system ("Gtr. 1") is taken in: the crops widen
+                               to it, showing the rows of its text lines only (the rest of that strip
+                               is blanked, so no other system's text comes in with it; manifest:
+                               margin_label {box, lines, widened_from_x}). Only text: specks, punch
+                               holes and smudges in the margin are not a label
   crops/<sys>_staff.png        notation staff only (cut in the first true gap below the staff's
                                own glyphs; text between systems belongs to the system below)
   crops/<sys>_tab.png          tab staff only
@@ -55,7 +60,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import argparse  # noqa: E402
 import json  # noqa: E402
 import math  # noqa: E402
-from dataclasses import dataclass  # noqa: E402
+from dataclasses import dataclass, field  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import numpy as np  # noqa: E402
@@ -81,8 +86,11 @@ class Unit:
     id: str = ""
     y0: int = 0
     y1: int = 0
-    x0: int = 0
+    x0: int = 0  # left edge for the layout analysis (2.5 spaces left of the staff)
     x1: int = 0
+    cx0: int = 0  # left edge of the crops: x0, or further left to hold a margin label
+    label_box: tuple[int, int, int, int] | None = None  # that label (page coords), if any
+    label_lines: list[tuple[int, int, int, int]] = field(default_factory=list)  # its text lines
 
     @property
     def staves(self) -> list[si.Staff]:
@@ -311,6 +319,10 @@ def process_page(pi: int, pg: si.Page, work: Path, manifest: dict) -> list[tuple
             pass  # a page of notation without TAB: kept as staff-only systems -> refused
 
     _unit_geometry(ink, units, W, H, t)
+    # the page-edge zone: a deskewed scan's original edge runs slanted across the first |sin a| * height px
+    edge_x = math.ceil(abs(math.sin(math.radians(angle))) * pg.image.height) + max(3, int(0.01 * W))
+    _margin_labels(ink, units, edge_x)
+    paper = int(np.median(gray[::4, ::4]))
 
     ids = []
     sheet_rows = []
@@ -318,14 +330,17 @@ def process_page(pi: int, pg: si.Page, work: Path, manifest: dict) -> list[tuple
     for u in units:
         if u.role != "system":
             rec = {"id": u.id, "page": pi, "kind": u.kind, "role": u.role, "group": u.gid,
-                   "bbox": [u.x0, u.y0, u.x1, u.y1], "reason": u.reason}
-            full = gray_img.crop((u.x0, u.y0, u.x1, u.y1))
+                   "bbox": [u.cx0, u.y0, u.x1, u.y1], "reason": u.reason}
+            if u.label_box:
+                rec["margin_label"] = {"box": list(u.label_box), "lines": [list(b) for b in u.label_lines],
+                                       "widened_from_x": u.x0}
+            full = _crop(gray_img, u, u.y0, u.y1, paper)
             rec["crop"] = save(full, work / "crops" / f"{u.id}_full.png", work)
             manifest["dropped"].append(rec)
             page_warn.append(f"{u.id}: {u.role} -- {u.reason}")
             sheet_rows.append((f"{u.id}  [{u.role.upper()}: {u.kind}]", full, -1))
             continue
-        rec, row = _system_record(u, pi, ink, csum, t, gray_img, work)
+        rec, row = _system_record(u, pi, ink, csum, t, gray_img, work, paper)
         ids.append(u.id)
         sys_records.append(rec)
         sheet_rows.append(row)
@@ -569,12 +584,15 @@ def _staff_tab_split(ink: np.ndarray, staff: si.Staff, tab: si.Staff, x0: int, x
 
 
 def _system_record(u: Unit, pi: int, ink: np.ndarray, csum: np.ndarray, t: float, gray_img: Image.Image,
-                   work: Path) -> tuple[dict, tuple]:
+                   work: Path, paper: int) -> tuple[dict, tuple]:
     sid, staff, tab, kind = u.id, u.staff, u.tab, u.kind
-    x0, x1, y0, y1 = u.x0, u.x1, u.y0, u.y1
+    x0, x1, y0, y1 = u.x0, u.x1, u.y0, u.y1  # x0: layout analysis; the crops start at u.cx0
     warn: list[str] = []
     rec: dict = {"id": sid, "page": pi, "kind": kind, "group": u.gid, "part": u.part, "parts_in_group": 1,
-                 "bbox": [x0, y0, x1, y1]}
+                 "bbox": [u.cx0, y0, x1, y1]}
+    if u.label_box:  # the crops were widened from widened_from_x to bbox[0] for this label, in its rows only
+        rec["margin_label"] = {"box": list(u.label_box), "lines": [list(b) for b in u.label_lines],
+                               "widened_from_x": u.x0}
     if u.reason:
         rec["reason"] = u.reason
     if staff is not None:
@@ -643,15 +661,15 @@ def _system_record(u: Unit, pi: int, ink: np.ndarray, csum: np.ndarray, t: float
         rec["barlines_unconfirmed_by_staff"] = [round(b.xa) for b in unconf]
 
     crops = {}
-    full = gray_img.crop((x0, y0, x1, y1))
+    full = _crop(gray_img, u, y0, y1, paper)
     crops["full"] = save(full, work / "crops" / f"{sid}_full.png", work)
     if staff is not None:
-        crops["staff"] = save(gray_img.crop((x0, y0, x1, split)), work / "crops" / f"{sid}_staff.png", work)
+        crops["staff"] = save(_crop(gray_img, u, y0, split, paper), work / "crops" / f"{sid}_staff.png", work)
     if tab is not None:
-        crops["tab"] = save(gray_img.crop((x0, tab_y0, x1, y1)), work / "crops" / f"{sid}_tab.png", work)
+        crops["tab"] = save(_crop(gray_img, u, tab_y0, y1, paper), work / "crops" / f"{sid}_tab.png", work)
     rec["crops"] = crops
 
-    segs = segment_ranges(x1 - x0, primary.spacing)
+    segs = segment_ranges(x1 - u.cx0, primary.spacing)
     rec["segments"] = {}
     for part in ("staff", "tab"):
         if part not in crops:
@@ -661,7 +679,7 @@ def _system_record(u: Unit, pi: int, ink: np.ndarray, csum: np.ndarray, t: float
         for j, (a, b) in enumerate(segs, start=1):
             lst.append(save(img.crop((a, 0, b, img.height)), work / "crops" / f"{sid}_{part}_seg{j}.png", work))
         rec["segments"][part] = lst
-    rec["segment_x_ranges"] = [[x0 + a, x0 + b] for a, b in segs]
+    rec["segment_x_ranges"] = [[u.cx0 + a, u.cx0 + b] for a, b in segs]
 
     scales = {part: max(1.0, min(4.0, BAR_TARGET_SPACE / st.spacing))
               for part, st in (("staff", staff), ("tab", tab)) if st is not None}
@@ -684,6 +702,37 @@ def _system_record(u: Unit, pi: int, ink: np.ndarray, csum: np.ndarray, t: float
     rec["warnings"] = warn
     label = f"{sid}  [{kind}, {len(bars)} bars, {u.gid} part {u.part}]"
     return rec, (label, full, split - y0)
+
+
+def _margin_labels(ink: np.ndarray, units: list[Unit], edge_x: int) -> None:
+    """Widen a crop to the left for a part label / instrument name printed in the margin beside its own
+    staves ('Gtr. 1' before an indented system), which the 2.5-space margin would cut ('tr. 1')."""
+    for u in units:
+        u.cx0 = u.x0
+        d = u.top.spacing
+        lines = si.margin_label(ink, u.x0, u.y0, u.y1, (u.top.top_min - d, u.bot.bottom_max + d), d, edge_x)
+        if lines:
+            u.label_lines = [tuple(int(v) for v in ln) for ln in lines]
+            box = (min(b[0] for b in lines), min(b[1] for b in lines), max(b[2] for b in lines),
+                   max(b[3] for b in lines))
+            u.label_box = tuple(int(v) for v in box)
+            u.cx0 = max(0, min(u.x0, box[0], max(edge_x, int(box[0] - 0.5 * d))))
+
+
+def _crop(gray_img: Image.Image, u: Unit, ya: int, yb: int, paper: int) -> Image.Image:
+    """Rows [ya, yb) of the unit from u.cx0 to u.x1. Where the crop was widened for a margin label, the
+    widened strip shows the rows of the label's text lines only (the rest painted paper): a heading or
+    text of the next system that shares those columns never comes in with the label."""
+    img = gray_img.crop((u.cx0, ya, u.x1, yb))
+    if u.cx0 >= u.x0 or not u.label_lines:
+        return img
+    a = np.array(img)
+    pad = 0.3 * u.top.spacing
+    keep = np.zeros(a.shape[0], bool)
+    for ln in u.label_lines:
+        keep[max(0, int(ln[1] - pad) - ya):max(0, math.ceil(ln[3] + pad) - ya)] = True
+    a[~keep, : u.x0 - u.cx0] = paper
+    return Image.fromarray(a)
 
 
 def _drop_opening_sliver(ink, u: Unit, bls, bars, t):

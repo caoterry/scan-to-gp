@@ -1,11 +1,11 @@
-#!/usr/bin/env -S uv run --script
+#!/usr/bin/env -S uv run --locked --script
 # /// script
 # requires-python = ">=3.10"
 # dependencies = []
 # ///
 """make_prompts.py -- fill the reader prompt templates for a prepared work dir.
 
-usage: uv run make_prompts.py <workdir> [--batch-size 8]
+usage: uv run --locked --script make_prompts.py <workdir> [--batch-size 8]
 
 Splits the systems (manifest order) into batches and writes, per batch K:
   <workdir>/prompts/tab_reader_K.md     -> reader writes <workdir>/reads/tab_K.json

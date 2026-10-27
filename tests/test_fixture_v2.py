@@ -101,6 +101,7 @@ def test_stacked_parts_end_to_end_match_the_source(ex2):
     assert gp_tracks(out) == want
     assert rep["tempo"] == 120 and rep["tempo_changes"] == {"5": 140}
     assert gp.parse(str(out)).measureHeaders[4].marker.title == "Chorus"
+    assert gp.parse(str(out)).tempoName == "Moderately"  # the printed word, not a library default
 
 
 def test_stacked_parts_refused_without_the_legend_flags(tmp_path):
@@ -128,7 +129,47 @@ def test_two_voices_end_to_end_match_the_source(ex3):
     meas = song.tracks[0].measures[1]
     assert [b.duration.value for b in meas.voices[1].beats] == [1]  # the held bass is a whole note
     assert rep["triplet_feel"] == "eighth" and rep["tempo"] == 100
+    assert song.tempoName == "Easy Shuffle"
     assert any("bends" in d for d in rep["dropped_playback"])
+
+
+@pytest.fixture(scope="module")
+def ex3_prepared(tmp_path_factory):
+    work = tmp_path_factory.mktemp("ex3p") / "work"
+    assert prepare.main([str(EX3 / "exercise3_scan.jpg"), str(work)]) == 0
+    return work
+
+
+@needs_alphatab
+@pytest.mark.parametrize("text,bpm,name", [
+    ("Rock ’n’ Roll (quarter = 160)", 160, "Rock 'n' Roll"),  # alphaTab read 'Rock \ufffdn\ufffd Roll'
+    ("Modéré (quarter = 100)", 100, "Modere"),  # alphaTab read 'Mod\ufffdr\ufffd'
+    ("Moderately ♩ ≈ 120", 120, "Moderately"),
+    ("Easy Shuffle ♩ ≈ 100", 100, "Easy Shuffle"),  # the write crashed: UnicodeEncodeError on '≈'
+    ("中速 Moderato (♩ = 100)", 100, ""),  # cannot be written whole: nothing, and a warning
+])
+def test_tempo_text_end_to_end_in_alphatab(tmp_path, ex3_prepared, text, bpm, name):
+    """exercise3 with only its tempo legend changed: the build agrees, writes the tempo text as ASCII, and
+    alphaTab (which reads GP5 text as UTF-8) parses exactly the plan."""
+    work = tmp_path / "work"
+    shutil.copytree(ex3_prepared, work)
+    for f in (EX3 / "expected" / "reads").glob("*.json"):
+        shutil.copy(f, work / "reads" / f.name)
+    staff_path = work / "reads" / "staff_read.json"
+    staff = json.loads(staff_path.read_text())
+    staff["legends"] = [lg if lg["kind"] != "tempo" else {**lg, "text": text, "bpm": bpm} for lg in staff["legends"]]
+    staff_path.write_text(json.dumps(staff))
+    out = tmp_path / "exercise3.gp5"
+    code = rb.main([str(work), str(out), "--capo", "2", "--notation-transpose", "2"])
+    rep = json.loads((work / "report.json").read_text())
+    assert code == 0, rep.get("error")
+    assert rep["agreement"] == "40/40" and rep["tempo"] == bpm
+    assert rep["tempo_name"] == name and gp.parse(str(out)).tempoName == name
+    assert (name == "") == any(text in w for w in rep["warnings"]), rep["warnings"]
+    p = run_alphatab(out, "--expect-bars", str(rep["bars_written"]), "--expect-notes", str(rep["notes_written"]),
+                     "--plan", str(work / "plan.json"))
+    assert p.returncode == 0, p.stderr
+    assert json.loads(p.stdout)["tempoName"] == name
 
 
 @needs_alphatab

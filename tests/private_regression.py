@@ -1,7 +1,7 @@
-#!/usr/bin/env -S uv run --script
+#!/usr/bin/env -S uv run --locked --script
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["pyguitarpro>=0.9"]
+# dependencies = ["pyguitarpro==0.11"]
 # ///
 """Private regression against a real scanned book excerpt that can NOT be shipped.
 
@@ -16,7 +16,7 @@ Checks: prepare.py finds the expected systems on every page; the legacy reads,
 split into systems by prepare.py's own barline detection, reconcile cleanly;
 the built .gp5 matches expected.gp5 note for note; alphaTab loads it.
 
-usage: SCAN_TO_GP_PRIVATE_FIXTURE=/path/to/fixture uv run tests/private_regression.py
+usage: SCAN_TO_GP_PRIVATE_FIXTURE=/path/to/fixture uv run --locked --script tests/private_regression.py
 """
 
 from __future__ import annotations
@@ -118,7 +118,7 @@ def main() -> int:
     failures = []
     with tempfile.TemporaryDirectory(prefix="stg_privreg_") as td:
         work = Path(td) / "work"
-        p = run(["uv", "run", "--script", SKILL / "scripts" / "prepare.py", fix / "source.pdf", work])
+        p = run(["uv", "run", "--locked", "--script", SKILL / "scripts" / "prepare.py", fix / "source.pdf", work])
         if p.returncode != 0:
             failures.append(f"prepare.py exit {p.returncode}")
         man = json.loads((work / "manifest.json").read_text())
@@ -136,7 +136,7 @@ def main() -> int:
         (work / "reads" / "tab_read.json").write_text(json.dumps(tab))
         (work / "reads" / "staff_read.json").write_text(json.dumps(staff))
         out = Path(td) / "out.gp5"
-        p = run(["uv", "run", "--script", SKILL / "scripts" / "reconcile_build.py", work, out, "--tempo", "80"])
+        p = run(["uv", "run", "--locked", "--script", SKILL / "scripts" / "reconcile_build.py", work, out, "--tempo", "80"])
         if p.returncode != 0:
             failures.append(f"reconcile_build.py exit {p.returncode}")
         else:

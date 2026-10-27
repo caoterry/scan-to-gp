@@ -1195,3 +1195,86 @@ def floating_top_across(ink: np.ndarray, st: Staff, y: int, x0: int, x1: int, bo
         return y
     objs = ndi.find_objects(lab)
     return int(min(objs[i - 1][0].start for i in cross) + ya)
+
+
+def margin_label(ink: np.ndarray, x_from: int, y0: int, y1: int, band: tuple[float, float], d: float, edge_x: int,
+                 gap: float = 2.5, reach: float = 30.0) -> list[tuple[int, int, int, int]] | None:
+    """A part label / instrument name printed in the margin left of a system ('Gtr. 1' before an indented
+    first system) that a crop starting at x_from would cut or leave out: the box (x0, y0, x1, y1) of each
+    of its text lines, top to bottom, or None.
+
+    Candidates are glyph-sized components -- at most 3 spaces tall and 12 wide, dust dropped -- whose
+    middle lies in `band` (rows beside the system's own staves, so a heading, a bar number or another
+    system's text is never taken) and that lie wholly inside rows [y0, y1). A filled blob of letter size
+    (ink deeper than 0.3 of its larger side: a punch hole, a smudge) is dropped. Nothing starting left of
+    edge_x (the page-edge zone: shadows, binding, the slanted edge of a deskewed scan) and nothing further
+    than `reach` spaces left of x_from is taken.
+
+    Candidates whose rows overlap form a line (at most 3.5 spaces tall: a taller stack is a streak or
+    speckle, not text). In each line, the components that chain leftwards from x_from (each within `gap`
+    spaces of the next) are a label only if they read as text, judged together with the rest of the line
+    right of x_from and short of the staff: at least two letters -- 0.4 spaces tall or more, drawn with
+    strokes (no point deeper inside the ink than a fifth of the height), unlike a filled speck or smudge
+    -- stand on one baseline (bottoms within 0.2 spaces), not all of them plain bars (a pair of scratches
+    is not a word), and at least half of the components stand on it. So specks, blobs and a smudge among
+    specks are not a label; a label of one glyph is not taken either (its crop stays as it was)."""
+    H, W = ink.shape
+    xa, xb = max(0, int(x_from - reach * d)), min(W, int(x_from + 4 * d))
+    ya, yb = max(0, int(y0)), min(H, int(y1))
+    if xb - xa < 3 or yb - ya < 3:
+        return None
+    lab, n = ndi.label(ink[ya:yb, xa:xb])
+    if n == 0:
+        return None
+    sizes = np.bincount(lab.ravel())
+    min_px = max(8, int(0.04 * d * d))
+    comps, letter, bar = [], {}, {}
+    for k, sl in enumerate(ndi.find_objects(lab), start=1):
+        if sl is None or sizes[k] < min_px:
+            continue
+        cy0, cy1, cx0, cx1 = sl[0].start + ya, sl[0].stop + ya, sl[1].start + xa, sl[1].stop + xa
+        h, w = cy1 - cy0, cx1 - cx0
+        if h > 3 * d or w > 12 * d or not band[0] <= (cy0 + cy1) / 2 <= band[1]:
+            continue
+        if cy0 <= ya or cy1 >= yb or cx0 <= max(xa, edge_x):  # shared with a neighbour, page edge, out of reach
+            continue
+        # how deep the ink is: half the stroke width of a glyph, half the width of a filled speck or blob
+        depth = float(ndi.distance_transform_edt(np.pad(lab[sl] == k, 1)).max())
+        if h >= 0.6 * d and depth > 0.3 * max(h, w):  # a filled blob of letter size: a punch hole, a smudge
+            continue
+        c = (cx0, cy0, cx1, cy1)
+        comps.append(c)
+        letter[c] = h >= 0.4 * d and depth <= 0.2 * h
+        bar[c] = sizes[k] >= 0.85 * h * w and w <= 0.4 * h  # a plain stroke: 'l', 'I' -- or a scratch
+    lines: list[list[tuple[int, int, int, int]]] = []
+    for c in sorted(comps, key=lambda c: c[1]):  # rows that overlap -> one line
+        if lines and c[1] < max(m[3] for m in lines[-1]):
+            lines[-1].append(c)
+        else:
+            lines.append([c])
+    out = []
+    for line in lines:
+        if max(c[3] for c in line) - min(c[1] for c in line) > 3.5 * d:
+            continue
+        frontier, members = x_from, []  # frontier: the left end of the chain so far
+        grown = True
+        while grown:
+            grown = False
+            for c in line:
+                if c not in members and c[0] < x_from and c[2] >= frontier - gap * d:
+                    members.append(c)
+                    frontier = min(frontier, c[0])
+                    grown = True
+        if not members:
+            continue
+        # judged as text together with the rest of its word that the crop already holds (right of x_from,
+        # short of the staff: 'B' of 'Bass' alone is cut, 'ass' is not)
+        text = members + [c for c in line if c[0] >= x_from and c[2] <= x_from + 2.3 * d]
+        letters = [c for c in text if letter[c]]
+        base = max(([b for b in letters if abs(b[3] - a[3]) <= 0.2 * d] for a in letters), key=len, default=[])
+        if len(base) >= 2 and not all(bar[c] for c in base):
+            y_base = float(np.median([b[3] for b in base]))
+            if 2 * sum(1 for c in text if abs(c[3] - y_base) <= 0.2 * d) >= len(text):
+                out.append((min(c[0] for c in text), min(c[1] for c in text), max(c[2] for c in text),
+                            max(c[3] for c in text)))
+    return out or None

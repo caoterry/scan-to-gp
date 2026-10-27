@@ -1,7 +1,8 @@
-# Runtime deps for skills/scan-to-gp/scripts (each script also declares them inline, PEP 723,
-# so `uv run --script` needs nothing else). Fallback: pip install -r requirements.txt
-numpy>=1.24
-scipy>=1.10
-pillow>=10.0
-pymupdf>=1.23
-pyguitarpro>=0.9
+# Runtime deps for skills/scan-to-gp/scripts. Each script pins them inline (PEP 723) and is locked in
+# <script>.py.lock, so `uv run --locked --script` needs nothing else; tests/test_pins.py keeps this file
+# in step with those pins. Fallback without uv (Python 3.12+): pip install -r requirements.txt
+numpy==2.5.4
+scipy==1.18.1
+pillow==13.0.0
+pymupdf==1.28.2
+pyguitarpro==0.11

@@ -75,6 +75,9 @@ def test_expected_gp5_is_reproducible_from_expected_reads(tmp_path):
                 for m in s.tracks[0].measures]
 
     assert sig(out) == sig(EX1 / "expected" / "expected.gp5")
+    assert gp.parse(str(out)).tempoName == ""  # the page prints no tempo words
+    assert gp.parse(str(out)).hideTempo  # nor a metronome number: the 90 given by --tempo is hidden
+    assert out.read_bytes() == (EX1 / "expected" / "expected.gp5").read_bytes()
 
 
 @needs_alphatab

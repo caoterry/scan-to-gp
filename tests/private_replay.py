@@ -1,7 +1,7 @@
-#!/usr/bin/env -S uv run --script
+#!/usr/bin/env -S uv run --locked --script
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["pyguitarpro>=0.9"]
+# dependencies = ["pyguitarpro==0.11"]
 # ///
 """Private replay: re-run prepare.py on real scanned pages that can NOT be shipped, then reconcile + build
 + verify on reads and adjudications that real reader agents produced for those pages earlier, and compare
@@ -25,7 +25,7 @@ dots, tuplet, string, fret, tie / ghost), tempo changes. Bars the new file leave
 empty. With "identical", the track / bar layout and the headers (repeats, triplet feel, markers) must
 match too. Prints only case names and numbers.
 
-usage: SCAN_TO_GP_PRIVATE_REPLAY=/path/replay.json uv run --script tests/private_replay.py [name ...]
+usage: SCAN_TO_GP_PRIVATE_REPLAY=/path/replay.json uv run --locked --script tests/private_replay.py [name ...]
 """
 
 from __future__ import annotations
@@ -133,7 +133,7 @@ def counts(report: dict) -> dict:
 
 def replay(case: dict, work: Path) -> list[str]:
     src = Path(case["workdir"])
-    cmd = ["uv", "run", "-q", "--script", SCRIPTS / "prepare.py", case["input"], work]
+    cmd = ["uv", "run", "-q", "--locked", "--script", SCRIPTS / "prepare.py", case["input"], work]
     if case.get("pages"):
         cmd += ["--pages", str(case["pages"])]
     p = run(cmd)
@@ -151,7 +151,7 @@ def replay(case: dict, work: Path) -> list[str]:
     if (src / "adjudications.json").exists():
         shutil.copy(src / "adjudications.json", work / "adjudications.json")
     out = work / "replay.gp5"
-    p = run(["uv", "run", "-q", "--script", SCRIPTS / "reconcile_build.py", work, out, *case.get("flags", [])])
+    p = run(["uv", "run", "-q", "--locked", "--script", SCRIPTS / "reconcile_build.py", work, out, *case.get("flags", [])])
     rep = json.loads((work / "report.json").read_text())
     if p.returncode != 0:
         return [f"reconcile exit {p.returncode}: {(rep.get('error') or '')[:300]}"]

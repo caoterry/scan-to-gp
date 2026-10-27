@@ -1,7 +1,7 @@
-#!/usr/bin/env -S uv run --script
+#!/usr/bin/env -S uv run --locked --script
 # /// script
-# requires-python = ">=3.10"
-# dependencies = ["numpy>=1.24", "scipy>=1.10", "pillow>=10.0"]
+# requires-python = ">=3.12"
+# dependencies = ["numpy==2.5.4", "scipy==1.18.1", "pillow==13.0.0"]
 # ///
 """inspect_crop.py -- measuring aids for the reader agents. Evidence, not answers.
 

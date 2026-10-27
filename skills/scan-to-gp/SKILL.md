@@ -1,6 +1,6 @@
 ---
 name: scan-to-gp
-description: Transcribe a SCANNED or photographed guitar/bass page (image-only PDF, PNG/JPG photo of tab) that has standard notation AND tablature into a verified Guitar Pro .gp5 file. Two independent agent reads (tab digits vs staff notes) must agree note-by-note before any file is written. Use when the user wants to turn a scanned tab / photo of tab / image PDF of guitar music into Guitar Pro, gp5, GP, or asks to "transcribe this page" of guitar music from an image.
+description: Transcribe a SCANNED or photographed guitar/bass page (image-only PDF, PNG/JPG photo of tab) that has standard notation AND tablature into a Guitar Pro .gp5 file. Two independent agent reads (tab digits vs staff notes) must agree on every note's pitch before any file is written. Use when the user wants to turn a scanned tab / photo of tab / image PDF of guitar music into Guitar Pro, gp5, GP, or asks to "transcribe this page" of guitar music from an image.
 ---
 
 # scan-to-gp
@@ -11,8 +11,10 @@ pitch for every note, and the staff rhythm must fill every bar. Scripts do every
 (extraction, deskew, staff detection, cropping, reconciling, building, verifying); agents only read
 glyphs and adjudicate.
 
-`${CLAUDE_SKILL_DIR}` is this skill's directory. All Python runs through `uv run --script`
-(dependencies are declared inline; the scripts re-exec themselves with `python -I`).
+`${CLAUDE_SKILL_DIR}` is this skill's directory. All Python runs through `uv run --locked --script`
+(dependencies are pinned inline and locked in `scripts/<name>.py.lock`; the scripts re-exec themselves
+with `python -I`). If uv reports that a lockfile is missing or out of date, stop and tell the user --
+do not drop `--locked` or re-lock.
 
 ## Scope (tell the user up front if their page falls outside it)
 
@@ -35,10 +37,12 @@ glyphs and adjudicate.
 - NOT cross-checkable, taken from the page legend + flags: tuning, capo, and whether the notation is
   printed transposed. Both reads shift together, so a wrong value gives "N/N agree" and a file that is a
   half/whole step off. The staff reader copies the legend; reconcile refuses flags that contradict it.
-- NOT representable yet (reported in the summary, never silently dropped): bends (the staff prints the
+- NOT representable yet (reported in the summary): bends (the staff prints the
   bend target as a note, the tab prints no digit), grace notes (recorded structurally), dead notes (x),
   techniques (written only as UNVERIFIED extras on request), voltas/D.S./Coda, 8va lines, dynamics,
-  lyrics, chord names.
+  lyrics, chord names. The file states no dynamic (no note velocity), but alphaTab (checked: 1.8.3) and
+  players built on it draw their own default "f" on a GP5 file that writes no velocity (at least at each
+  track's first note) -- that mark is not from the page.
 - Handwritten or very dense/low-resolution pages: warn the user before spending effort; results will
   need more adjudication.
 
@@ -51,7 +55,7 @@ glyphs and adjudicate.
 ### 1. Prepare
 Pick a work dir next to the user's file, e.g. `<name>.scan2gp/`. Then:
 ```
-uv run --script "${CLAUDE_SKILL_DIR}/scripts/prepare.py" <input.pdf|.png|.jpg ...> <workdir> [--pages 1,3-4]
+uv run --locked --script "${CLAUDE_SKILL_DIR}/scripts/prepare.py" <input.pdf|.png|.jpg ...> <workdir> [--pages 1,3-4]
 ```
 `--pages` selects pages (1-based across all inputs in order); use it for long PDFs instead of
 extracting pages yourself.
@@ -60,24 +64,26 @@ extracting pages yourself.
   number changes between systems -- never work around that by splitting crops yourself).
 - Exit 2 = nothing found: say so; ask for a better scan.
 - Always Read `<workdir>/contact/p<N>.png` and `contact/systems.png` and check: every system found
-  (compare with the page), stacked parts labelled `part k/n` where the page shows Gtr. 1 over Gtr. 2,
-  grey DROPPED/SKIPPED boxes only on staves without TAB, the magenta split between staff and tab without
-  cutting notes, orange barlines on real barlines. Relay every WARNING line to the user -- especially a
-  SKIPPED system: prepare counts its bars from the barlines on its staff (orange lines on the grey box;
-  note stems excluded) and reconcile writes that many UNTRANSCRIBED (empty) bars in every track at its
-  place. Check that count against the page; if it is wrong, or prepare says UNKNOWN (a barline it could
-  not tell from a stem, a dashed barline, a multi-bar rest ...), count the bars on the page yourself and
-  pass `--gap-bars <id>:<bars>` to reconcile (`0` if the staff is not a system of its own). If the page
-  tells the guitar to play there (an instruction to repeat an earlier figure, a fill, a repeat), those
-  notes are NOT in the file -- say so. If a system is missing or mis-split, stop and tell the user -- do
-  not transcribe a partial page as if whole.
+  (compare with the page), stacked parts labelled `part k/n` where the page shows Gtr. 1 over Gtr. 2, a
+  part label printed left of a system ("Gtr. 1") inside its green box (the crop is widened for it, in
+  the label's rows only; only text is taken -- not specks, punch holes or a one-glyph label, which stay
+  cut as before), grey DROPPED/SKIPPED boxes only on staves without TAB, the magenta split
+  between staff and tab without cutting notes, orange barlines on real barlines. Relay every WARNING
+  line to the user -- especially a SKIPPED system: prepare counts its bars from the barlines on its
+  staff (orange lines on the grey box; note stems excluded) and reconcile writes that many UNTRANSCRIBED
+  (empty) bars in every track at its place. Check that count against the page; if it is wrong, or
+  prepare says UNKNOWN (a barline it could not tell from a stem, a dashed barline, a multi-bar rest
+  ...), count the bars on the page yourself and pass `--gap-bars <id>:<bars>` to reconcile (`0` if the
+  staff is not a system of its own). If the page tells the guitar to play there (an instruction to
+  repeat an earlier figure, a fill, a repeat), those notes are NOT in the file -- say so. If a system is
+  missing or mis-split, stop and tell the user -- do not transcribe a partial page as if whole.
 - `crops/p<N>_header.png` is everything above the first system (tuning / capo legend, tempo) and
   `crops/p<N>_footer.png` everything below the last one (footnotes); the staff reader copies their
   legends in step 2. Look at them yourself too.
 
 ### 2. Dispatch the readers (in parallel, independent)
 ```
-uv run --script "${CLAUDE_SKILL_DIR}/scripts/make_prompts.py" <workdir>        # batches of <= 8 systems
+uv run --locked --script "${CLAUDE_SKILL_DIR}/scripts/make_prompts.py" <workdir>        # batches of <= 8 systems
 ```
 (add `--unverified` for tab-only pages). For EVERY batch, launch one TAB reader and one STAFF reader
 with the Agent tool -- all of them in a single message so they run concurrently (general-purpose
@@ -89,11 +95,11 @@ with `"voice": 2` and copies the legends; check its reply lists them.
 
 ### 3. Reconcile + build
 ```
-uv run --script "${CLAUDE_SKILL_DIR}/scripts/reconcile_build.py" <workdir> <out.gp5> [--tempo N] [--title T] \
+uv run --locked --script "${CLAUDE_SKILL_DIR}/scripts/reconcile_build.py" <workdir> <out.gp5> [--tempo N] [--title T] \
     [--tuning E2,A2,D3,G3,B3,E4] [--capo N] [--notation-transpose N] [--tab-reprints-ties] [--gap-bars ID:N]
 ```
 - Tuning is low -> high; default by tab line count (6: standard, 7: B1 standard, 4: E1 bass).
-- Legends decide the tuning flags (Hal Leonard conventions -- reconcile prints the exact flags when the
+- Legends decide the tuning flags (common tab-book conventions -- reconcile prints the exact flags when the
   legend and the flags disagree, exit 2 `LegendError`):
   - Half-step-down (or whole-step-down) tuning legends: the book prints notation AND TAB as if in
     standard tuning: `--tuning Eb2,Ab2,Db3,Gb3,Bb3,Eb4 --notation-transpose -1` (both flags).
@@ -106,8 +112,16 @@ uv run --script "${CLAUDE_SKILL_DIR}/scripts/reconcile_build.py" <workdir> <out.
 - Tempo: taken from the transcribed tempo mark(s), converted to quarter notes per minute (a dotted-quarter
   = 60 mark is 90), changes on later systems / pages written where they are printed. If no tempo is
   printed at the start it writes 90 bpm and prints a loud warning -- ask the user or read the page and
-  pass `--tempo N`. A shuffle / swing marking is written as GP triplet feel from where it is printed until
-  a "straight" marking.
+  pass `--tempo N`. A start tempo the page does not print as a number (that placeholder, or a `--tempo
+  N` for a page that prints none) is marked hidden in the file (GP5.1 hideTempo, meant for Guitar Pro;
+  not checked there) and gets no tempo text, but alphaTab and players built on it ignore the flag and
+  still draw "♩ = N" over bar 1 -- a mark the page does not print. A `--tempo N` for a page that does
+  print a start tempo replaces that number and keeps the page's tempo words, so the file shows a number
+  the page does not print: say so in the summary. A shuffle / swing marking is written as GP
+  triplet feel from where it is printed until a "straight" marking.
+- Text in the file (title, part labels, section names, tempo text) is written as ASCII: a GP5 string has
+  no encoding (Guitar Pro reads cp1252, alphaTab UTF-8). Quotes and dashes become ASCII, accents are
+  dropped (Modéré -> Modere); text in another script is not written, and a warning names it.
 - Stacked parts must have the same bars, with pickups of the same length; part labels that alternate
   between systems of one part (Gtr. 1, Gtr. 2, Gtr. 1) are refused as an interleave.
 - Part labels decide the tracks: a system without a label continues the part above it; a label naming
@@ -132,7 +146,7 @@ uv run --script "${CLAUDE_SKILL_DIR}/scripts/reconcile_build.py" <workdir> <out.
 ### 4. Adjudicate (default-guilty) -- repeat 3 -> 4 until clean
 For each disagreement (it names system, bar, tab entry #i and staff event #j):
 1. Open `bars/<sys>_bNN_tab.png` and `bars/<sys>_bNN_staff.png`; zoom on exactly the disputed note in
-   BOTH with `uv run --script "${CLAUDE_SKILL_DIR}/scripts/inspect_crop.py" zoom <img> x0 y0 x1 y1 --scale 4 --out <workdir>/zoom/adj_<k>_tab.png`
+   BOTH with `uv run --locked --script "${CLAUDE_SKILL_DIR}/scripts/inspect_crop.py" zoom <img> x0 y0 x1 y1 --scale 4 --out <workdir>/zoom/adj_<k>_tab.png`
    (and `..._staff.png`), and run `inspect_crop.py tab <img> --lines <tab_lines>` / `inspect_crop.py staff <img>`
    on the bar crops for measurements.
 2. Assume BOTH reads may be wrong. Write down what the pixels show (digit shape, which line it sits on;
@@ -170,8 +184,8 @@ For each disagreement (it names system, bar, tab entry #i and staff event #j):
 node "${CLAUDE_SKILL_DIR}/scripts/verify_alphatab.mjs" <out.gp5> --expect-bars <bars_written> --expect-notes <notes_written> --plan <workdir>/plan.json
 ```
 This parses the file with alphaTab (independent of the library that wrote it) and compares every beat
-of every track and voice, tempo changes and triplet feel with the reconciled plan. Non-zero exit = not
-done; report it.
+of every track and voice, title, track names, markers, tempo changes, the tempo text over bar 1,
+triplet feel, and that no note carries a dynamic, with the reconciled plan. Non-zero exit = not done; report it.
 
 ### 6. Hand over -- honest summary
 Give the user the file path and, from `report.json`, in this order:
@@ -194,7 +208,16 @@ Give the user the file path and, from `report.json`, in this order:
    adjudications it equals the agreement) and the number of glyph adjudications. Never call
    disagreements "minor" and never report only "N/N".
 4. Tuning / capo / notation transpose used and the legend they came from, stated as NOT cross-checkable.
-5. Tempo and where it came from (say plainly if it is the 90 bpm placeholder), feel written.
+5. Tempo and where it came from (say plainly if it is the 90 bpm placeholder). If `tempo_hidden` (the
+   page prints no metronome number at the start: the placeholder, or your `--tempo N`), say that a
+   player built on alphaTab still draws "♩ = N" over bar 1 although the page does not print it (the file
+   marks it hidden -- a GP5.1 flag meant for Guitar Pro, not checked there; alphaTab ignores it). The
+   tempo text written over bar 1 (`tempo_name`: the printed words of the tempo mark at the start, or
+   none -- none beside a hidden tempo), feel written.
+   Always add: dynamics are not transcribed and the file states none, but players built on alphaTab
+   draw their own "f" (at least at each track's first note) -- the player's default for a note without a
+   dynamic, not the page's. If `--tempo N` replaced a tempo the page prints, say that the file's number is
+   yours, not the page's.
 6. Every warning in `report.json` `warnings` (prepare's warnings are repeated there with a "prepare:"
    prefix; inferred time signature, superseded reads, structure markings, legend override, tempo placeholder),
    technique marks seen and whether they were written (default: NOT written; offer a re-run with

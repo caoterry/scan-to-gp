@@ -1,4 +1,4 @@
-#!/usr/bin/env -S uv run --script
+#!/usr/bin/env -S uv run --locked --script
 # /// script
 # requires-python = ">=3.10"
 # dependencies = []
@@ -18,7 +18,7 @@ Every key under "expect" is optional. Checks: exit code, detected bars per syste
 stacked parts and systems per group, dropped / skipped staves, the bar count prepare gives each skipped
 system ("gaps", reading order; null = left unknown), tab line counts, whether any dashed barline was found. Nothing about the pages is printed beyond the case names you chose.
 
-usage: SCAN_TO_GP_PRIVATE_PAGES=/path/expect.json uv run --script tests/private_structure.py [name ...]
+usage: SCAN_TO_GP_PRIVATE_PAGES=/path/expect.json uv run --locked --script tests/private_structure.py [name ...]
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ PREPARE = REPO / "skills" / "scan-to-gp" / "scripts" / "prepare.py"
 
 
 def check(case: dict, work: Path) -> list[str]:
-    cmd = ["uv", "run", "-q", "--script", str(PREPARE), case["input"], str(work)]
+    cmd = ["uv", "run", "-q", "--locked", "--script", str(PREPARE), case["input"], str(work)]
     if case.get("pages"):
         cmd += ["--pages", str(case["pages"])]
     p = subprocess.run(cmd, capture_output=True, text=True)

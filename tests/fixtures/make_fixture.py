@@ -1,11 +1,11 @@
-#!/usr/bin/env -S uv run --script
+#!/usr/bin/env -S uv run --locked --script
 # /// script
-# requires-python = ">=3.10"
-# dependencies = ["numpy>=1.24", "pillow>=10.0", "scipy>=1.10"]
+# requires-python = ">=3.12"
+# dependencies = ["numpy==2.5.4", "pillow==13.0.0", "scipy==1.18.1"]
 # ///
 """Regenerate a fixture: render <name>.ly with LilyPond, then degrade it to look scanned.
 
-usage: uv run tests/fixtures/make_fixture.py tests/fixtures/exercise1/exercise1.ly [--inverted]
+usage: uv run --locked --script tests/fixtures/make_fixture.py tests/fixtures/exercise1/exercise1.ly [--inverted]
 Writes next to the .ly: <name>_clean.png, <name>.midi, <name>_scan.jpg (deterministic, seeded),
 and with --inverted also <name>_1bit_inverted.png: the scan thresholded to 1 bit and stored
 white-on-black, the way the raw samples of a 1-bit /ImageMask (stencil) PDF scan come out.

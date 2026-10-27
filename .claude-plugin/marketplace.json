@@ -8,7 +8,7 @@
     {
       "name": "scan-to-gp",
       "source": ".",
-      "description": "Turn scanned guitar pages (standard notation + TAB) into a verified Guitar Pro .gp5."
+      "description": "Turn scanned guitar pages (standard notation + TAB) into a Guitar Pro .gp5; a TAB read and a staff read must agree on every note's pitch."
     }
   ]
 }

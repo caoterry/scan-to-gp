@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from PIL import Image
+from scipy import ndimage as ndi
 
 import prepare
 from conftest import FIXTURES
@@ -92,6 +93,144 @@ def test_text_between_systems_goes_to_the_system_below(ex2_scan):
     assert len(rows) > 20  # the heading is there
     assert s3["bbox"][1] <= rows.min(), (s3["bbox"], rows.min())
     assert s3["split_y"] > rows.max()
+
+
+# ---- part labels printed in the margin ("Gtr. 1" left of an indented system) ----------------------
+
+
+def margin_label_boxes(page_ink: np.ndarray, s: dict, min_x: int = 3) -> list[tuple[int, int, int, int]]:
+    """(x0, y0, x1, y1) of every ink component left of the system's opening line whose middle lies beside
+    its notation staff -- the part label printed in the margin. Deliberately simpler than prepare's own
+    search (no chaining, no gap rule): anything there counts. Dust (< 15 px) and components starting left
+    of min_x (the page edge) are ignored."""
+    sp = s["staff_space_px"]
+    left = s["bars"][0]["x"][0]  # the system's opening line
+    ya, yb = s["staff_lines_y"][0] - 0.5 * sp, s["staff_lines_y"][-1] + 0.5 * sp
+    lo, hi = int(ya - 3 * sp), int(yb + 3 * sp)
+    lab, _ = ndi.label(page_ink[lo:hi, : int(left - 0.5 * sp)])
+    out = []
+    for k, sl in enumerate(ndi.find_objects(lab), start=1):
+        y0, y1, x0, x1 = sl[0].start + lo, sl[0].stop + lo, sl[1].start, sl[1].stop
+        if (lab[sl] == k).sum() >= 15 and ya <= (y0 + y1) / 2 <= yb and x0 >= min_x:
+            out.append((x0, y0, x1, y1))
+    return out
+
+
+def assert_margin_labels_in_the_crops(work: Path, man: dict, labelled=("p1_s1", "p1_s2"), min_x: int = 3) -> None:
+    page = np.asarray(Image.open(work / "pages" / "p1.png").convert("L"))
+    for s in man["systems"]:
+        boxes = margin_label_boxes(page < 128, s, min_x)
+        if s["id"] not in labelled:
+            assert boxes == [], (s["id"], boxes)
+            continue
+        assert len(boxes) >= 4, (s["id"], boxes)  # "Gtr. 1": G, t, r, 1 (+ the full stop)
+        x0, y0, _, y1 = s["bbox"]
+        sp = s["staff_space_px"]
+        for part, bottom in (("full", y1), ("staff", s["split_y"])):
+            crop = np.asarray(Image.open(work / s["crops"][part]).convert("L"))
+            for bx0, by0, bx1, by1 in boxes:
+                assert x0 <= bx0 and y0 <= by0 and by1 <= bottom, (s["id"], part, s["bbox"], (bx0, by0, bx1, by1))
+                # whole and untouched: the crop holds the page's own pixels there
+                assert np.array_equal(crop[by0 - y0:by1 - y0, bx0 - x0:bx1 - x0], page[by0:by1, bx0:bx1])
+        assert x0 >= min(b[0] for b in boxes) - 1.5 * sp, s["bbox"]  # label-deep, not page-deep
+        # the crop was widened because its old left edge cut the label; outside the label's rows the
+        # widened strip shows nothing: no heading, page legend or other system's text comes in with it
+        old_x0 = s["margin_label"]["widened_from_x"]
+        assert old_x0 > min(b[0] for b in boxes), (s["id"], old_x0)
+        crop = np.asarray(Image.open(work / s["crops"]["full"]).convert("L"))
+        rows = np.ones(crop.shape[0], bool)
+        rows[max(0, int(min(b[1] for b in boxes) - y0 - 0.5 * sp)):int(max(b[3] for b in boxes) - y0 + 0.5 * sp)] = False
+        assert not (crop[rows, :old_x0 - x0] < 128).any(), s["id"]
+
+
+@pytest.mark.parametrize("name", ["exercise2_scan.jpg", "exercise2_clean.png"])
+def test_part_labels_are_inside_the_system_crops(tmp_path, name):
+    """'Gtr. 1' / 'Gtr. 2' printed left of the indented first system were cut by the crop ('tr. 1')."""
+    work = tmp_path / "w"
+    code, man = prep(work, EX2 / name)
+    assert code == 0, man["warnings"]
+    assert_margin_labels_in_the_crops(work, man)
+    assert [s.get("margin_label") is not None for s in man["systems"]] == [True, True, False, False]
+
+
+def test_margin_label_search_stops_at_page_edge_artefacts(tmp_path):
+    """The label close to the page edge, glyph-sized shadow fragments along the edge in its rows (a
+    book's gutter shadow, a few pixels in from the border): the label goes into the crop, the shadow
+    does not."""
+    img = np.array(Image.open(EX2 / "exercise2_clean.png").convert("L"))[:, 150:].copy()
+    for y in range(480, 1240, 40):  # dark fragments near the left edge beside both labelled staves
+        img[y:y + 22, 4:18] = 40
+    p = tmp_path / "edge.png"
+    Image.fromarray(img).save(p)
+    work = tmp_path / "w"
+    code, man = prep(work, p)
+    assert code == 0 and [s["n_bars_detected"] for s in man["systems"]] == [4, 4, 4, 4]
+    assert_margin_labels_in_the_crops(work, man, min_x=20)
+    for s in man["systems"][:2]:
+        assert s["bbox"][0] >= 18, s["bbox"]
+
+
+@pytest.fixture(scope="module")
+def ex2_clean(tmp_path_factory):
+    work = tmp_path_factory.mktemp("ex2c") / "w"
+    return work, *prep(work, EX2 / "exercise2_clean.png")
+
+
+def crop_pixels(work: Path, s: dict) -> dict[str, np.ndarray]:
+    return {part: np.asarray(Image.open(work / path).convert("L")) for part, path in s["crops"].items()}
+
+
+@pytest.mark.parametrize("junk", ["disc", "speckle", "both"])
+def test_margin_junk_is_not_a_label(tmp_path, ex2_clean, junk):
+    """Beside the non-indented systems p1_s3 / p1_s4, 2-5% of the page width in from the edge (outside
+    the page-edge zone): a filled disc 2.5 spaces across beside p1_s3 (a punch hole) and 60 small dark
+    fragments beside p1_s4's staff and TAB (scanner speckle). Neither is text: no margin_label, and those
+    systems' bboxes and crops are exactly the clean page's."""
+    work0, code0, man0 = ex2_clean
+    assert code0 == 0
+    img = np.array(Image.open(EX2 / "exercise2_clean.png").convert("L"))
+    H, W = img.shape
+    s3, s4 = man0["systems"][2], man0["systems"][3]
+    sp = s3["staff_space_px"]
+    if junk in ("disc", "both"):
+        cx, cy, r = 0.035 * W, (s3["staff_lines_y"][0] + s3["staff_lines_y"][-1]) / 2, 1.25 * sp
+        yy, xx = np.ogrid[:H, :W]
+        img[(xx - cx) ** 2 + (yy - cy) ** 2 <= r * r] = 30
+        assert cx + r < s3["bbox"][0]  # outside the crop
+    if junk in ("speckle", "both"):
+        rng = np.random.default_rng(7)
+        lo, hi = s4["staff_lines_y"][0] - sp, s4["tab_lines_y"][-1] + sp
+        right = min(int(0.05 * W), s4["bbox"][0] - 2)
+        for _ in range(60):
+            w, h = (int(v) for v in rng.integers(4, 10, size=2))
+            x, y = int(rng.integers(int(0.02 * W), right - w)), int(rng.integers(int(lo), int(hi) - h))
+            img[y:y + h, x:x + w] = 35
+    p = tmp_path / "junk.png"
+    Image.fromarray(img).save(p)
+    work = tmp_path / "w"
+    code, man = prep(work, p)
+    assert code == 0, man["warnings"]
+    assert [s.get("margin_label") for s in man["systems"][2:]] == [None, None]
+    assert [s.get("margin_label") is not None for s in man["systems"][:2]] == [True, True]  # the real labels
+    for a, b in zip(man0["systems"], man["systems"]):
+        assert a["bbox"] == b["bbox"], (a["id"], a["bbox"], b["bbox"])
+        ca, cb = crop_pixels(work0, a), crop_pixels(work, b)
+        assert ca.keys() == cb.keys() and all(np.array_equal(ca[k], cb[k]) for k in ca), a["id"]
+
+
+def test_a_two_line_label_is_taken_whole(tmp_path):
+    """A label printed on two lines ('Gtr. 1' over 'Gtr. 1' here, half a space apart): both lines go into
+    the crop, each in its own rows."""
+    img = np.array(Image.open(EX2 / "exercise2_clean.png").convert("L"))
+    img[610:645, 198:315] = img[565:600, 198:315]  # p1_s1's label, again under itself
+    p = tmp_path / "two_lines.png"
+    Image.fromarray(img).save(p)
+    work = tmp_path / "w"
+    code, man = prep(work, p)
+    assert code == 0, man["warnings"]
+    assert_margin_labels_in_the_crops(work, man)
+    ml = man["systems"][0]["margin_label"]
+    assert ml["box"][1] <= 566 and ml["box"][3] >= 644 and len(ml["lines"]) == 2, ml
 
 
 def _blank(img: np.ndarray, y0: float, y1: float, x0: float = 0, x1: float | None = None) -> None:

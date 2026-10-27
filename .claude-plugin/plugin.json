@@ -1,12 +1,15 @@
 {
   "name": "scan-to-gp",
-  "version": "0.2.1",
-  "description": "Turn scanned guitar pages (standard notation + TAB) into a Guitar Pro .gp5 that two independent reads verified note by note.",
+  "version": "0.2.2",
+  "description": "Turn a scanned or photographed guitar page (standard notation + TAB) into a Guitar Pro .gp5. Two independent reads, one of the TAB and one of the staff, must agree on the pitch of every note before the file is written.",
   "author": {
     "name": "Terry Cao"
   },
   "homepage": "https://github.com/caoterry/scan-to-gp",
   "repository": "https://github.com/caoterry/scan-to-gp",
+  "documentationUrl": "https://github.com/caoterry/scan-to-gp#readme",
+  "supportUrl": "https://github.com/caoterry/scan-to-gp/issues",
+  "privacyPolicyUrl": "https://github.com/caoterry/scan-to-gp#what-it-runs-and-fetches",
   "license": "MIT",
   "keywords": [
     "guitar",

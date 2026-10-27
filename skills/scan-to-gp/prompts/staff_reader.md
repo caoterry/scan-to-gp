@@ -34,9 +34,9 @@ tablature was cut off on purpose.
 
 ## Tools
 
-- Zoom: `uv run --script "{{SKILL_DIR}}/scripts/inspect_crop.py" zoom "<img>" x0 y0 x1 y1 --scale 3 --out "{{WORKDIR}}/zoom/staff_<name>.png"`
+- Zoom: `uv run --locked --script "{{SKILL_DIR}}/scripts/inspect_crop.py" zoom "<img>" x0 y0 x1 y1 --scale 3 --out "{{WORKDIR}}/zoom/staff_<name>.png"`
   then Read the output. Write zoom files ONLY into `{{WORKDIR}}/zoom/`, names starting with `staff_`.
-- Measure: `uv run --script "{{SKILL_DIR}}/scripts/inspect_crop.py" staff "<staff image>" --clef treble [--x0 X --x1 X] [--out "{{WORKDIR}}/zoom/staff_<name>_ann.png"]`
+- Measure: `uv run --locked --script "{{SKILL_DIR}}/scripts/inspect_crop.py" staff "<staff image>" --clef treble [--x0 X --x1 X] [--out "{{WORKDIR}}/zoom/staff_<name>_ann.png"]`
   finds the 5 lines and notehead candidates and prints each one's staff step (0 = bottom line, odd =
   space, negative = below, with ledger-line counts) and its written letter+octave. Evidence, not truth:
   accidentals or other symbols can show up as false noteheads, chords can merge, hollow heads can be

@@ -1,11 +1,11 @@
-#!/usr/bin/env -S uv run --script
+#!/usr/bin/env -S uv run --locked --script
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["pyguitarpro>=0.9"]
+# dependencies = ["pyguitarpro==0.11"]
 # ///
 """reconcile_build.py -- cross-check two independent reads, then build a verified .gp5.
 
-usage: uv run reconcile_build.py <workdir> <out.gp5> [--tempo N] [--tuning E2,A2,D3,G3,B3,E4]
+usage: uv run --locked --script reconcile_build.py <workdir> <out.gp5> [--tempo N] [--tuning E2,A2,D3,G3,B3,E4]
                                  [--capo N] [--notation-transpose N] [--title T]
                                  [--write-techniques] [--tab-reprints-ties] [--unverified]
                                  [--legend-override REASON] [--gap-bars ID:N]
@@ -65,6 +65,7 @@ import glob  # noqa: E402
 import json  # noqa: E402
 import re  # noqa: E402
 import traceback  # noqa: E402
+import unicodedata  # noqa: E402
 from collections import Counter  # noqa: E402
 from dataclasses import dataclass, field  # noqa: E402
 from fractions import Fraction  # noqa: E402
@@ -224,6 +225,102 @@ _KEY_STANDARD = re.compile(r"(?<!drop )(?<!open )\b([a-g])(b|#)?\s+(?:standard\s
 _BEATS = [(r"dotted\s+half|half\s+note\s*\.|𝅗𝅥\s*\.|\bh\s*\.", Fraction(3)), (r"dotted\s+quarter|♩\s*\.|\bq\s*\.", Fraction(3, 2)),
           (r"dotted\s+eighth|♪\s*\.|\be\s*\.", Fraction(3, 4)), (r"\bhalf\b|𝅗𝅥|\bh\b", Fraction(2)),
           (r"\beighth\b|♪|\be\b", Fraction(1, 2)), (r"\bquarter\b|♩|\bq\b|\bcrotchet\b", Fraction(1))]
+# a metronome mark inside a tempo legend: [M.M.] [beat unit] =|≈|~ [c.] N[-M] [bpm] ("quarter = 120",
+# "♩. = 60", "q = c. 108", "M.M. ♩ ≈ 120"), or a bare "N bpm"
+_NOTE_GLYPHS = "♩♪♫♬𝅗𝅥𝅘𝅥𝅘𝅥𝅮𝅘𝅥𝅯𝅝"
+_BEAT_UNIT = (r"(?:(?:dotted\s+)?(?:quarter|half|eighth|sixteenth|whole|crotchet|minim|quaver|semiquaver)(?:\s+notes?)?"
+              r"|\b[qhes]\b|[" + _NOTE_GLYPHS + r"]+)\s*\.?")
+_MM_EQ = r"\s*[=≈~]\s*(?:(?:c|ca|circa|approx)\.?\s*|~\s*)?"  # '=' / '≈' / '~' and an optional 'c.'
+_METRONOME = re.compile(r"(?:\bM\.?\s*M\.?\s*)?(?:" + _BEAT_UNIT + r")?" + _MM_EQ
+                        + r"\d{2,3}(?:\s*[-–]\s*\d{2,3})?(?:\s*bpm\b)?|\b\d{2,3}\s*bpm\b", re.IGNORECASE)
+_MM_NUMBER = re.compile(_MM_EQ + r"(\d{2,3})\b", re.IGNORECASE)  # the number of a metronome mark
+_SEP = "\x00"  # where a metronome mark / an equation was: a clause boundary
+_OPEN, _CLOSE = "([{", ")]}"
+
+
+def _drop_unmatched_brackets(s: str) -> str:
+    """Every bracket without its partner becomes a clause boundary: '(Moderately ♩ = 120' keeps no '('."""
+    stack, drop = [], set()
+    for i, c in enumerate(s):
+        if c in _OPEN:
+            stack.append(i)
+        elif c in _CLOSE:
+            if stack and s[stack[-1]] == _OPEN[_CLOSE.index(c)]:
+                stack.pop()
+            else:
+                drop.add(i)
+    drop.update(stack)
+    return "".join(_SEP if i in drop else c for i, c in enumerate(s))
+
+
+def tempo_words(text: str) -> str:
+    """The words of a printed tempo mark, without its metronome mark: 'Moderately (quarter = 120)' ->
+    'Moderately', 'q = 96' -> ''. Only removes; never adds a word that is not printed.
+
+    Not tempo words either: a feel / swing equation ('♫ = ♪³♪', 'eighth pair = long-short triplet'
+    -- the latter is a reader's description of the symbol, not printed text) together with the words
+    that introduce it ('Swing 8ths:'): whatever still holds an '=' / '≈' after the metronome mark is gone
+    is cut from its opening bracket, or from the preceding clause boundary (the metronome mark, ',', ';',
+    '|', a spaced dash), to its end. Brackets without a partner are dropped, and a pair around the whole
+    name ('(Moderately) ♩ = 120')."""
+    s = _METRONOME.sub(f" {_SEP} ", str(text or ""))
+    s = _drop_unmatched_brackets(s)
+    eq = re.compile(r"[\(\[\{][^()\[\]{}]*[=≈][^()\[\]{}]*[\)\]\}]")  # an innermost bracket holding an equation
+    while eq.search(s):
+        s = eq.sub(f" {_SEP} ", s)
+    s = re.sub(r"[\(\[\{][\s" + _SEP + r"]*[\)\]\}]", f" {_SEP} ", s)  # a bracket left empty
+    s = _drop_unmatched_brackets(s)
+    # clauses: an equation clause goes whole, with the boundary before it
+    parts = re.split(r"(" + _SEP + r"|[,;|]|\s[-–—]\s)", s)
+    keep: list[str] = []
+    for k in range(0, len(parts), 2):
+        clause, sep = parts[k], (parts[k - 1] if k else "")
+        if re.search(r"[=≈]", clause):
+            continue
+        keep.append(sep + clause)
+    s = "".join(keep).replace(_SEP, " ")
+    s = re.sub(r"[" + _NOTE_GLYPHS + r"]", " ", s)
+    s = re.sub(r"\s+", " ", s)
+    s = re.sub(r"\s+([,;:.)\]}])", r"\1", s)
+    s = re.sub(r"([(\[{])\s+", r"\1", s).strip(" ,;:|-–—")
+    while len(s) > 1 and s[0] in _OPEN and s[-1] == _CLOSE[_OPEN.index(s[0])] \
+            and _drop_unmatched_brackets(s[1:-1]) == s[1:-1]:  # one pair around the whole name
+        s = s[1:-1].strip(" ,;:|-–—")
+    return s if re.search(r"[^\W\d_]", s) else ""
+
+
+# ------------------------------------------------------------------ text written into the .gp5
+# A GP5 string carries no encoding: pyguitarpro writes cp1252 (and cannot encode anything outside it),
+# Guitar Pro reads cp1252, alphaTab (1.8.3, ImporterSettings.encoding) reads UTF-8 -- a cp1252 byte above
+# 127 becomes U+FFFD there ('Rock \ufffdn\ufffd Roll'). Only ASCII reads the same everywhere.
+_TO_ASCII = {"‘": "'", "’": "'", "‚": ",", "‛": "'", "′": "'", "“": '"', "”": '"', "„": '"', "″": '"', "«": '"',
+             "»": '"', "‹": "'", "›": "'", "‐": "-", "‑": "-", "‒": "-", "–": "-", "—": "-", "―": "-", "−": "-",
+             "⁄": "/", "×": "x", "•": "*", "·": ".", "ß": "ss", "æ": "ae", "Æ": "AE", "œ": "oe", "Œ": "OE",
+             "ø": "o", "Ø": "O", "ł": "l", "Ł": "L", "đ": "d", "Đ": "D", "ð": "d", "Ð": "D", "þ": "th", "Þ": "Th",
+             "ı": "i"}
+
+
+def gp_text(text: str) -> tuple[str, bool]:
+    """(the text as written into the .gp5, complete). ASCII only: typographic quotes / dashes become their
+    ASCII forms, accents are folded ('Modéré' -> 'Modere'), symbols are dropped ('Coda ⊕' -> 'Coda').
+    complete is False when a letter or digit has no ASCII form (another script: '中速') -- the caller then
+    writes nothing rather than part of it."""
+    s = "".join(c for c in unicodedata.normalize("NFKD", str(text or "")) if not unicodedata.combining(c))
+    s = "".join(_TO_ASCII.get(c, c) for c in s)
+    complete = not any(ord(c) > 127 and unicodedata.category(c)[0] in "LN" for c in s)
+    s = "".join(c if " " <= c <= "~" else (" " if c.isspace() else "") for c in s)
+    return re.sub(r"\s+", " ", s).strip(), complete
+
+
+def written_text(text: str, what: str, warnings: list[str], instead: str = "") -> str:
+    """gp_text(), or `instead` with a warning naming the printed text when it cannot be written whole (or
+    nothing of it is left: symbols only)."""
+    s, complete = gp_text(text)
+    if complete and (s or not str(text or "").strip()):
+        return s
+    warnings.append(f"{what} {text!r} cannot be written to a .gp5 (its text is ASCII; letters of another script "
+                    f"or symbols have no ASCII form) -- " + (f"wrote {instead!r} instead" if instead else "left empty"))
+    return instead
 
 
 @dataclass
@@ -369,7 +466,7 @@ def parse_legends(items: list, n_strings: int = 6) -> Legends:
                 lg.notes.append(f"legend {text!r}: mentions a capo but no fret")
         # ---- tempo (converted to quarter notes per minute)
         bpm = it.get("bpm")
-        mm = re.search(r"=\s*(\d{2,3})\b", text)
+        mm = _MM_NUMBER.search(text)
         if bpm is None and kind == "tempo" and mm:
             bpm = int(mm.group(1))
         if bpm is not None:
@@ -434,7 +531,7 @@ def _spell(m: int, flats: bool) -> str:
 
 def legend_flags(lg: Legends, n_strings: int) -> tuple[str | None, int | None, int]:
     """(tuning spec or None, capo or None, notation transpose) the legend implies, using the
-    Hal Leonard conventions: a 'tune down' book prints notation AND tab as if in the un-lowered
+    common tab-book conventions: a 'tune down' book prints notation AND tab as if in the un-lowered
     tuning (so the notation must be transposed down too); a capo piece prints the notation in the
     fingered key with the tab counted from the capo (so the notation is transposed up by the capo).
     A non-uniform alternate tuning (DADGAD, drop D, open G) is printed at sounding pitch."""
@@ -1485,7 +1582,7 @@ def _legend_check(lg: Legends, leg_spec, leg_capo, leg_nt, tuning, tuning_spec, 
         raise LegendError(
             "the page legend contradicts the flags: " + "; ".join(bad) + ". Tuning and capo cannot be "
             "cross-checked (both reads shift together), so they must come from the legend. Re-run with:  "
-            + flags + "  (Hal Leonard convention: a 'tune down' book prints notation and TAB as if in standard tuning, "
+            + flags + "  (common tab-book convention: a 'tune down' book prints notation and TAB as if in standard tuning, "
             "so the notation is transposed down with it; a capo piece prints the notation in the fingered key, so the "
             "notation is transposed up by the capo. If this book prints sounding pitch instead, use "
             "--notation-transpose 0 -- the cross-check will tell. If the legend does not apply to this part, pass "
@@ -1707,7 +1804,8 @@ def build_timeline(part_bars: dict[int, list[Bar]], parts: list[int], idents: di
     multi_slot = len(parts) > 1
     for t in tracks:
         is_bass = len(t["tuning"]) == 4
-        t["name"] = t["label"] or (("Bass" if is_bass else "Guitar") if not multi_slot else f"Part {t['part']}")
+        t["unlabelled_name"] = ("Bass" if is_bass else "Guitar") if not multi_slot else f"Part {t['part']}"
+        t["name"] = t["label"] or t["unlabelled_name"]
     return timeline, tracks
 
 
@@ -1894,13 +1992,29 @@ def tempo_plan(res: dict, tempo_flag: int | None) -> dict:
             warns.append(f"conflicting tempo marks at bar {idx + 1}: " + ", ".join(f"{b} ({s})" for b, s in lst)
                          + f" -- used {lst[0][0]}")
     changes = {idx: lst[0] for idx, lst in sorted(at.items()) if idx > 0}
+    # the tempo text over bar 1 (GP5 Song.tempoName): the printed words of the tempo mark at the start, or
+    # nothing -- never a library default ("Moderate") or a word the page does not print
+    marks0 = [(w, t["text"]) for t in res["legends"].texts
+              if (str(t.get("kind", "")).lower() == "tempo" or t.get("bpm") is not None)
+              and pos(t.get("system"), t.get("page")) == 0 and (w := tempo_words(t["text"]))]
+    words = [w for w, _ in marks0]
+    if len(set(words)) > 1:
+        warns.append(f"tempo marks at bar 1 print different words: {' | '.join(dict.fromkeys(words))} -- wrote "
+                     f"{words[0]!r}")
+    printed = 0 in at  # a metronome number printed at the start
     if tempo_flag:
-        return {"tempo": tempo_flag, "source": "--tempo", "changes": changes, "default_used": False, "warnings": warns}
-    if 0 not in at:
-        return {"tempo": DEFAULT_TEMPO, "source": "DEFAULT (no tempo mark at the start was transcribed)",
-                "changes": changes, "default_used": True, "warnings": warns}
-    bpm, src = at[0][0]
-    return {"tempo": bpm, "source": src, "changes": changes, "default_used": False, "warnings": warns}
+        bpm, src = tempo_flag, "--tempo"
+    elif printed:
+        bpm, src = at[0][0]
+    else:
+        bpm, src = DEFAULT_TEMPO, "DEFAULT (no tempo mark at the start was transcribed)"
+    # A number the page does not print at the start -- the 90 bpm placeholder, or --tempo N chosen for
+    # playback -- is not a mark on the page: hidden (GP5.1 Song.hideTempo, for Guitar Pro; alphaTab 1.8.3
+    # reads and ignores it), and no tempo text beside it: the page's words next to a metronome mark it does
+    # not print ('Loosely, gently ♩ = 90') would read as the page's own marking.
+    name = written_text(words[0], f"tempo mark {marks0[0][1]!r}: its words", warns) if words and printed else ""
+    return {"tempo": bpm, "source": src, "changes": changes, "default_used": not tempo_flag and not printed,
+            "hidden": not printed, "warnings": warns, "name": name}
 
 
 def feel_plan(res: dict) -> tuple[list[str | None], list[str]]:
@@ -1942,6 +2056,8 @@ def build(res: dict, out: Path, tempo: dict, title: str, write_techs: bool, inst
     song = m.Song()
     song.title = title
     song.tempo = tempo["tempo"]
+    song.tempoName = tempo["name"]  # pyguitarpro defaults to "Moderate", which players print over bar 1
+    song.hideTempo = tempo["hidden"]  # no metronome number printed at the start: not a mark on the page
     song.measureHeaders = []
     plan_bars = []
     markers: dict[str, str] = {}
@@ -1970,8 +2086,10 @@ def build(res: dict, out: Path, tempo: dict, title: str, write_techs: bool, inst
             section = next((t["bars"][i].section for t in tracks if t["bars"][i] is not None and t["bars"][i].section),
                            None)
             if section:
-                hdr.marker = m.Marker(title=str(section))
-                markers[str(i + 1)] = str(section)
+                section = written_text(str(section), f"section name at bar {i + 1}", res["warnings"])
+            if section:  # none written when the name cannot be (another script): the warning says so
+                hdr.marker = m.Marker(title=section)
+                markers[str(i + 1)] = section
             hdr.hasDoubleBar = any(t["bars"][i].double_bar for t in tracks if t["bars"][i] is not None)
             hdr.isRepeatOpen = b.repeat_start
             if b.repeat_end:  # reader: total plays (2 = plain :|); GP model: number of repeats
@@ -1992,7 +2110,7 @@ def build(res: dict, out: Path, tempo: dict, title: str, write_techs: bool, inst
         tuning = td["tuning"]
         is_bass = len(tuning) == 4
         track = m.Track(song, number=ti)
-        track.name = td["name"]
+        track.name = written_text(td["name"], "part label", res["warnings"], instead=td["unlabelled_name"])
         track.strings = [m.GuitarString(n, v) for n, v in sorted(tuning.items())]
         track.offset = res.get("capo", 0)
         track.channel.instrument = instrument if instrument is not None else (33 if is_bass else 25)
@@ -2105,8 +2223,10 @@ def build(res: dict, out: Path, tempo: dict, title: str, write_techs: bool, inst
                             "notated_bars": td["notated"]})
     out.parent.mkdir(parents=True, exist_ok=True)
     gp.write(song, str(out), version=(5, 1, 0))
-    plan = {"tracks": plan_tracks, "tempo": tempo["tempo"],
-            "tempo_changes": {str(k + 1): v for k, v in sorted(tempo_at.items())}, "feel": feels, "markers": markers}
+    plan = {"title": song.title, "tracks": plan_tracks, "tempo": tempo["tempo"], "tempo_hidden": tempo["hidden"],
+            "tempo_name": tempo["name"],
+            "tempo_changes": {str(k + 1): v for k, v in sorted(tempo_at.items())}, "feel": feels, "markers": markers,
+            "dynamics": None}  # none written: dynamics are not transcribed (every note at the GP5 default)
     return plan, written_techs
 
 
@@ -2114,9 +2234,11 @@ def plan_file(plan: dict) -> dict:
     """plan.json for verify_alphatab.mjs: track 1 at the top level (as in v0.1), further tracks under
     more_tracks; bars a track does not notate are {"untranscribed": true, "beats": []}."""
     t0 = plan["tracks"][0]
-    return {"name": t0["name"], "strings": t0["strings"], "capo": t0["capo"], "bars": t0["bars"],
-            "more_tracks": plan["tracks"][1:], "tempo": plan["tempo"], "tempo_changes": plan["tempo_changes"],
-            "feel": plan["feel"], "markers": plan["markers"]}
+    return {"title": plan["title"], "name": t0["name"], "strings": t0["strings"], "capo": t0["capo"],
+            "bars": t0["bars"], "more_tracks": plan["tracks"][1:], "tempo": plan["tempo"],
+            "tempo_hidden": plan["tempo_hidden"], "tempo_name": plan["tempo_name"],
+            "tempo_changes": plan["tempo_changes"], "feel": plan["feel"], "markers": plan["markers"],
+            "dynamics": plan["dynamics"]}
 
 
 def readback(out: Path, plan: dict) -> tuple[int, int]:
@@ -2161,6 +2283,18 @@ def readback(out: Path, plan: dict) -> tuple[int, int]:
     markers = {str(i + 1): h.marker.title for i, h in enumerate(song.measureHeaders) if h.marker}
     if markers != plan.get("markers", markers):
         raise AssertionError(f"read-back: markers {markers} != {plan['markers']}")
+    names = [tr.name for tr in song.tracks]
+    if names != [tp["name"] for tp in plan["tracks"]] or song.title != plan.get("title", song.title):
+        raise AssertionError(f"read-back: title {song.title!r}, track names {names} != the plan's")
+    if song.hideTempo != plan.get("tempo_hidden", song.hideTempo):
+        raise AssertionError(f"read-back: hideTempo {song.hideTempo} != the plan's {plan['tempo_hidden']}")
+    if song.tempoName != plan.get("tempo_name", song.tempoName):
+        raise AssertionError(f"read-back: tempo name {song.tempoName!r} != {plan['tempo_name']!r}")
+    if "dynamics" in plan and plan["dynamics"] is None:  # no dynamic written: no note leaves GP5's default velocity
+        loud = sum(1 for tr in song.tracks for meas in tr.measures for v in meas.voices for bt in v.beats
+                   for n in bt.notes if n.velocity != m.Velocities.default)
+        if loud:
+            raise AssertionError(f"read-back: {loud} note(s) carry a velocity, the plan writes no dynamic")
     return len(plan["tracks"][0]["bars"]), n_notes
 
 
@@ -2224,7 +2358,7 @@ def offset_advice(k: int, res: dict, args) -> str:
     else:
         shifted = ",".join(midi_name(res["tuning"][s] - k) for s in sorted(res["tuning"], reverse=True))
         lines.append("no tuning/capo legend was transcribed -- look at the page header. Either the notation is "
-                     f"printed transposed (--notation-transpose {nt + k}; capo pieces in Hal Leonard books: "
+                     f"printed transposed (--notation-transpose {nt + k}; capo pieces in many tab books: "
                      f"--capo N --notation-transpose N), or the guitar is retuned (--tuning {shifted}).")
     return " ".join(lines)
 
@@ -2350,12 +2484,16 @@ def describe_drop(d: dict) -> str:
 
 def tempo_default_warning(tempo: dict, lg: "Legends") -> str:
     texts = [t["text"] for t in lg.texts if str(t.get("kind", "")).lower() == "tempo" and t.get("bpm") is None
-             and not re.search(r"=\s*\d", t["text"])]
+             and not _MM_NUMBER.search(t["text"])]
+    shown = (f"marked hidden (GP5.1 hideTempo, for Guitar Pro; not checked in Guitar Pro itself), but alphaTab-based "
+             f"players ignore that flag and still draw a metronome mark of {tempo['tempo']} over bar 1 -- the page does "
+             "not print it")
     if texts:
         return (f"NO METRONOME NUMBER: the tempo mark {texts[0]!r} prints no number -- wrote {tempo['tempo']} bpm as a "
-                "placeholder. Ask the user or re-run with --tempo N.")
-    return (f"NO TEMPO MARK was transcribed -- wrote {tempo['tempo']} bpm as a placeholder. Check the page and re-run "
-            "with --tempo N.")
+                f"placeholder, {shown}; the mark's words are not written as tempo text beside an invented number. "
+                "Ask the user or re-run with --tempo N.")
+    return (f"NO TEMPO MARK was transcribed -- wrote {tempo['tempo']} bpm as a placeholder, {shown}. Check the page "
+            "and re-run with --tempo N.")
 
 
 def parse_gap_bars(items: list[str]) -> dict[str, int]:
@@ -2555,7 +2693,7 @@ def main(argv=None) -> int:
     if res["unverified_systems"]:
         out = unverified_out
     tempo = tempo_plan(res, args.tempo)
-    title = args.title or out.stem
+    title = written_text(args.title or out.stem, "title", res["warnings"])
     try:
         plan, written = build(res, out, tempo, title, args.write_techniques, args.instrument)
         nb, nn = readback(out, plan)
@@ -2581,7 +2719,8 @@ def main(argv=None) -> int:
                    "notes_cross_checked": compared,
                    "agreement": f"{compared}/{compared}" if compared else None,
                    "tied_continuations_not_in_tab": omitted_ties, "tempo": tempo["tempo"],
-                   "tempo_source": tempo["source"], "tempo_changes": plan["tempo_changes"],
+                   "tempo_source": tempo["source"], "tempo_hidden": tempo["hidden"], "tempo_name": tempo["name"],
+                   "tempo_changes": plan["tempo_changes"],
                    "triplet_feel": lg.feel, "feel_per_bar": plan["feel"], "dropped_playback": dropped,
                    "dropped_playback_sources": summary["sources"],
                    "dropped_playback_reader_differences": summary["reader_differences"],
@@ -2601,7 +2740,10 @@ def main(argv=None) -> int:
     if tempo["default_used"]:
         print(f"  WARNING: {tempo_default_warning(tempo, lg)}")
     else:
-        print(f"  tempo {tempo['tempo']} bpm (from {tempo['source']})")
+        print(f"  tempo {tempo['tempo']} bpm (from {tempo['source']})"
+              + (f"; tempo text written: {tempo['name']!r}" if tempo["name"] else "")
+              + ("; marked hidden: the page prints no metronome number at the start (alphaTab-based players "
+                 "still draw it)" if tempo["hidden"] else ""))
     if plan["tempo_changes"]:
         print("  tempo changes written: " + ", ".join(f"bar {k} -> {v}" for k, v in plan["tempo_changes"].items()))
     if any(plan["feel"]):
