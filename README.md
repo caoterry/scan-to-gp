@@ -256,3 +256,6 @@ from the environment so nothing private enters the repo.
 ## License
 
 MIT -- see [LICENSE](LICENSE).
+
+---
+Made by [Terry Cao](https://github.com/caoterry) · see also: [Fender Tone Master Pro cheat sheet](https://caoterry.github.io/tmp-atlas/) (every model measured)
