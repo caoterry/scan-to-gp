@@ -258,4 +258,4 @@ from the environment so nothing private enters the repo.
 MIT -- see [LICENSE](LICENSE).
 
 ---
-Made by [Terry Cao](https://github.com/caoterry) · see also: [Fender Tone Master Pro cheat sheet](https://caoterry.github.io/tmp-atlas/) (every model measured)
+Made by [Terry Cao](https://github.com/caoterry) · see also: [woodshed](https://woodshed-web.fly.dev) — any tab you have, playing in seconds
